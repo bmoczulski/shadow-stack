@@ -1,48 +1,67 @@
+#include <algorithm>
 #include <cstddef>
+#include <cassert>
+#include <iostream>
 #include <cstdint>
 #include <ctime>
 #include <iterator>
 #include <pthread.h>
 #include <sys/types.h>
 #include <vector>
+#include <ranges>
 
 namespace shst {
 
 class Stack
 {
   public:
-    [[nodiscard]] virtual size_t size() const noexcept = 0;
-    [[nodiscard]] virtual const void* stack() const noexcept = 0;
-
     [[nodiscard]] uint8_t const* cbegin() const
     {
-        return address();
+        return caddress();
     }
 
     [[nodiscard]] uint8_t const* cend() const
     {
-        return address(size());
+        return caddress(size());
     }
 
-    ssize_t position(void const* sp) const
+    size_t position(void const* sp) const
     {
-        return std::distance(address(), address(sp));
+        auto caddr_begin = caddress();
+        auto caddr_sp = caddress(sp);
+        return std::distance(caddr_begin, caddr_sp);
     }
 
-    [[nodiscard]] uint8_t const* address(size_t position) const
+    [[nodiscard]] uint8_t const* caddress(size_t position) const
     {
-        return (position < size()) ? (address() + position) : nullptr;
+        return (position <= size()) ? (caddress() + position) : nullptr;
     }
 
-    [[nodiscard]] uint8_t const* address(void const* sp) const
+    [[nodiscard]] uint8_t const* caddress() const noexcept
+    {
+        return static_cast<uint8_t const*>(cstack());
+    }
+
+    [[nodiscard]] uint8_t const* caddress(void const* sp) const
     {
         auto const* u8sp = static_cast<uint8_t const*>(sp);
-        return (cbegin() <= u8sp && u8sp < cend()) ? u8sp : nullptr;
+        return (cbegin() <= u8sp && u8sp <= cend()) ? u8sp : nullptr;
     }
 
-    [[nodiscard]] uint8_t const* address() const noexcept
+    [[nodiscard]] virtual size_t size() const noexcept = 0;
+
+  protected:
+    [[nodiscard]] virtual void const* cstack() const noexcept = 0;
+    [[nodiscard]] virtual void* stack() noexcept = 0;
+
+    [[nodiscard]] uint8_t* address() noexcept
     {
-        return static_cast<uint8_t const*>(stack());
+        return static_cast<uint8_t*>(stack());
+    }
+
+    [[nodiscard]] uint8_t* address(size_t position) noexcept
+    {
+        return (position < size()) ? (address() + position) : nullptr;
     }
 };
 
@@ -59,9 +78,15 @@ class StackBase final : public Stack
     {
         return stack_size;
     }
-    [[nodiscard]] const void* stack() const noexcept override
+
+  protected:
+    [[nodiscard]] void const* cstack() const noexcept override
     {
         return stack_address;
+    }
+    [[nodiscard]] void* stack() noexcept override
+    {
+        return nullptr;
     }
 
   private:
@@ -72,9 +97,9 @@ class StackBase final : public Stack
 class StackShadow final : public Stack
 {
   public:
-    StackShadow(StackBase const& base)
-        : base{base}
-        , shadow(base.size())
+    StackShadow(StackBase const& orig)
+        : orig{orig}
+        , shadow(orig.size())
     {
     }
 
@@ -83,44 +108,91 @@ class StackShadow final : public Stack
         return shadow.size();
     }
 
-    [[nodiscard]] const void* stack() const noexcept override
+    void push(void* callee, void* stack_pointer);
+    void check();
+    void pop();
+
+  protected:
+    [[nodiscard]] void const* cstack() const noexcept override
     {
         return shadow.data();
     }
 
-    void push(void* callee, void* stack_pointer)
+    [[nodiscard]] void* stack() noexcept override
     {
-        uint8_t const* last_stack_pointer = nullptr;
-        if (stack_frames.empty()) {
-            last_stack_pointer = base.cend();
-        } else {
-            last_stack_pointer = base.address(stack_frames.back().sp);
-        }
-        auto const size = std::distance(base.address(stack_pointer), last_stack_pointer);
-        stack_frames.emplace_back(callee, stack_pointer, size);
+        return shadow.data();
     }
-
-    void check() {}
-    void pop() {}
 
   private:
     struct StackFrame
     {
-        StackFrame(void const* callee, void const* sp, size_t size)
+        StackFrame(void const* callee, size_t position, size_t size)
             : callee{callee}
-            , sp{sp}
+            , position{position}
             , size{size}
         {
         }
-        const void* const callee;
-        const void* const sp;
+        void const* const callee;
+        size_t const position;
         size_t const size;
     };
 
-    StackBase const base;
+    StackBase const orig;
     std::vector<uint8_t> shadow;
     std::vector<StackFrame> stack_frames;
 };
+
+void StackShadow::push(void* callee, void* sp)
+{
+    auto const last_stack_position = stack_frames.empty() ? orig.size() : stack_frames.back().position;
+    auto const orig_stack_pointer = orig.caddress(sp);
+    auto const stack_position = orig.position(sp);
+
+    assert(last_stack_position >= stack_position);
+    auto const size = last_stack_position - stack_position;
+
+    assert(size);
+    std::copy_n(orig_stack_pointer, size, address(stack_position));
+
+    stack_frames.emplace_back(callee, stack_position, size);
+}
+
+void StackShadow::check()
+{
+    using std::ranges::for_each;
+    using std::ranges::subrange;
+    using std::views::chunk;
+    using std::views::counted;
+    using std::views::filter;
+    using std::views::zip;
+
+    auto last_position = stack_frames.back().position;
+    auto orig_range = subrange(orig.caddress(last_position), orig.cend());
+    auto shadow_range = subrange(caddress(last_position), cend());
+    assert(orig_range.size() == shadow_range.size());
+
+    size_t const max_line = 32;
+
+    for_each(std::views::zip(orig_range | chunk(max_line), shadow_range | chunk(max_line)) |
+                     filter([](auto const& pair) {
+                         auto res = std::ranges::mismatch(get<0>(pair), get<1>(pair));
+                         return res.in1 != get<0>(pair).end();
+                     }),
+             []([[maybe_unused]] auto const& pair) {
+                 /*for_each(*/
+                 /*	 get<0>(pair) | chunk(4) | std::ranges::transform([](auto const& ch4) {*/
+                 /**/
+                 /*		 })*/
+                 /*	 [](auto const& pair) {}*/
+                 /*	 );*/
+             });
+}
+
+void StackShadow::pop()
+{
+    assert(!stack_frames.empty());
+    stack_frames.pop_back();
+}
 
 StackBase makeStackBase()
 {
@@ -138,14 +210,14 @@ class StackThreadContext
 {
   public:
     StackThreadContext()
-        : base{makeStackBase()}
-        , shadow{base}
+        : orig{makeStackBase()}
+        , shadow{orig}
     {
     }
 
     [[nodiscard]] StackBase const& getStackBase() const
     {
-        return base;
+        return orig;
     }
 
     void push(void* callee, void* stack_pointer);
@@ -153,7 +225,7 @@ class StackThreadContext
     void pop();
 
   private:
-    StackBase base;
+    StackBase orig;
     StackShadow shadow;
 };
 
@@ -188,12 +260,14 @@ struct Caller
         ctx.check();
         ctx.push(callee, &stack_pointer);
     }
+
     ~Caller()
     {
         StackThreadContext& ctx = getStackThreadContext();
         ctx.check();
         ctx.pop();
     }
+
     void* call(void* x0, void* x1, void* x2, void* x3, void* x4, void* x5, void* x6, void* x7)
     {
         return callee_fun(x0, x1, x2, x3, x4, x5, x6, x7);
