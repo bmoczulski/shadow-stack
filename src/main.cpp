@@ -1,6 +1,10 @@
 #include "shadow-stack.h"
+#include <algorithm>
 #include <cstdint>
+#include <ranges>
 #include <iostream>
+#include <string>
+#include <string_view>
 
 using namespace std;
 
@@ -39,10 +43,18 @@ long foo_wrapper(void* x0, void* x1, void* x2, void* x3, void* x4, void* x5, voi
 //////////////////////////////////////////////////////////////////////////
 /// end of experiment
 //////////////////////////////////////////////////////////////////////////
-
+void ranges_test()
+{
+    std::string s1{"ala ma kota"};
+    std::string s2{"ala ma też psa"};
+    auto res = std::ranges::mismatch(s1, s2);
+    std::cout << std::string_view(res.in1, s1.end()) << '\n';
+    std::cout << std::string_view(res.in2, s2.end()) << '\n';
+}
 
 int main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[])
 {
+    ranges_test();
     std::cout << "main\n";
     std::cout << "main done\n";
 }
