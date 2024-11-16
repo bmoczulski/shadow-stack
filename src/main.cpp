@@ -35,9 +35,9 @@ long foo(...)
     return 0;
 }
 
-long foo_wrapper(void* x0, void* x1, void* x2, void* x3, void* x4, void* x5, void* x6, void* x7)
+long foo_wrapper(void* x0, void* x1, void* x2, void* x3, void* x4, void* x5, void* x6)
 {
-    return shst::wrapper_impl(reinterpret_cast<void*>(foo), x0, x1, x2, x3, x4, x5, x6, x7);
+    return shst::wrapper_impl(reinterpret_cast<void*>(foo), x0, x1, x2, x3, x4, x5, x6);
 }
 
 //////////////////////////////////////////////////////////////////////////

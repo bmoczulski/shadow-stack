@@ -1,7 +1,6 @@
 #include <algorithm>
 #include <cstddef>
 #include <cassert>
-#include <iostream>
 #include <cstdint>
 #include <ctime>
 #include <iterator>
@@ -94,11 +93,23 @@ class StackBase final : public Stack
     size_t const stack_size;
 };
 
+StackBase makeStackBase()
+{
+    pthread_attr_t attr;
+    void* stackaddr{};
+    size_t stacksize{};
+
+    pthread_getattr_np(pthread_self(), &attr);
+    pthread_attr_getstack(&attr, &stackaddr, &stacksize);
+
+    return {stackaddr, stacksize};
+}
+
 class StackShadow final : public Stack
 {
   public:
-    StackShadow(StackBase const& orig)
-        : orig{orig}
+    StackShadow()
+        : orig{makeStackBase()}
         , shadow(orig.size())
     {
     }
@@ -194,38 +205,16 @@ void StackShadow::pop()
     stack_frames.pop_back();
 }
 
-StackBase makeStackBase()
-{
-    pthread_attr_t attr;
-    void* stackaddr{};
-    size_t stacksize{};
-
-    pthread_getattr_np(pthread_self(), &attr);
-    pthread_attr_getstack(&attr, &stackaddr, &stacksize);
-
-    return {stackaddr, stacksize};
-}
-
 class StackThreadContext
 {
   public:
-    StackThreadContext()
-        : orig{makeStackBase()}
-        , shadow{orig}
-    {
-    }
-
-    [[nodiscard]] StackBase const& getStackBase() const
-    {
-        return orig;
-    }
+    StackThreadContext() = default;
 
     void push(void* callee, void* stack_pointer);
     void check();
     void pop();
 
   private:
-    StackBase orig;
     StackShadow shadow;
 };
 
