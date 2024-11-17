@@ -1,14 +1,10 @@
 #pragma once
 
+#include "shadow-stack-detail.h"
+
 namespace shst {
 
 extern "C" long invoke_impl(void* callee, ...);
-
-namespace details {
-
-
-
-} // namespace details
 
 #define a_cast(toType) shst::details::mad_cast<toType>
 
