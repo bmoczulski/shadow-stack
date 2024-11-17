@@ -1,10 +1,13 @@
 #include "shadow-stack.h"
 #include <algorithm>
 #include <cstdint>
+#include <iomanip>
+#include <ios>
 #include <ranges>
 #include <iostream>
 #include <string>
 #include <string_view>
+#include <vector>
 
 using namespace std;
 
@@ -37,7 +40,7 @@ long foo(...)
 
 long foo_wrapper(void* x0, void* x1, void* x2, void* x3, void* x4, void* x5, void* x6)
 {
-    return shst::wrapper_impl(reinterpret_cast<void*>(foo), x0, x1, x2, x3, x4, x5, x6);
+    return shst::invoke_impl(reinterpret_cast<void*>(foo), x0, x1, x2, x3, x4, x5, x6);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -52,9 +55,66 @@ void ranges_test()
     std::cout << std::string_view(res.in2, s2.end()) << '\n';
 }
 
+void print_range(std::string_view msg, auto const& range)
+{
+    std::cout << msg << ": " << std::string_view(range.cbegin(), range.cend()) << '\n';
+}
+
+void test_check()
+{
+    using std::ranges::for_each;
+    using std::ranges::subrange;
+    using std::views::chunk;
+    using std::views::counted;
+    using std::views::filter;
+    using std::views::zip;
+
+    std::vector<char> orig(128, '+');
+    std::vector<char> shadow(128, '+');
+    shadow[54] = '?';
+    auto orig_range = subrange(orig);
+    auto shadow_range = subrange(shadow);
+
+    size_t const max_line = 16;
+
+    for_each(std::views::zip(orig_range | chunk(max_line), shadow_range | chunk(max_line)) |
+                     filter([](auto const& pair) {
+                         /*print_range("check orig", get<0>(pair));*/
+                         /*print_range("check shad", get<1>(pair));*/
+                         auto res = std::ranges::mismatch(get<0>(pair), get<1>(pair));
+                         return res.in1 != get<0>(pair).end();
+                     }),
+             []([[maybe_unused]] auto const& pair) {
+                 /*print_range(" diff orig", get<0>(pair));*/
+                 /*print_range(" diff shad", get<1>(pair));*/
+
+                 cout << std::hex;
+                 cout << std::setw(16) << static_cast<void*>(&(*get<0>(pair).begin())) << ": ";
+
+                 auto old_flags = cout.setf(std::ios::hex);
+                 auto old_fill = cout.fill('0');
+
+                 for_each(get<0>(pair) | chunk(4), [first = bool{true}](auto const& ch8) mutable {
+                     std::cout << ((first) ? (first = false, "") : " ");
+                     for_each(ch8, [](auto b) { cout << std::setw(2) << static_cast<unsigned>(b & 0xFF); });
+                 });
+                 cout << "    ";
+                 for_each(get<1>(pair) | chunk(4), [first = bool{true}](auto const& ch8) mutable {
+                     std::cout << ((first) ? (first = false, "") : " ");
+                     for_each(ch8, [](auto b) { cout << std::setw(2) << static_cast<unsigned>(b & 0xFF); });
+                 });
+                 cout << '\n';
+
+                 cout.setf(old_flags);
+                 cout.fill(old_fill);
+             });
+}
+
 int main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[])
 {
-    ranges_test();
-    std::cout << "main\n";
+    long sp{};
+    std::cout << "main: " << &sp << "\n";
+    /*ranges_test();*/
+    test_check();
     std::cout << "main done\n";
 }
