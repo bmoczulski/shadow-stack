@@ -184,10 +184,6 @@ struct StaticFunctionFactory<m>
     }
 };
 
-bool foo(int a, double b)
-{
-    return a == int(b);
-}
 
 
 template <class C, class Pointed, class Object, class... Args>
@@ -246,6 +242,11 @@ struct Foo {
         return a == int(b);
     }
 };
+
+bool foo(int a, double b)
+{
+    return a == int(b);
+}
 void test() {
     foo_invoke(foo, 3, 3.14);
     Foo f;
