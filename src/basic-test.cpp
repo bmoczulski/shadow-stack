@@ -189,23 +189,6 @@ bool foo(int a, double b)
     return a == int(b);
 }
 
-template <class F, class... Args>
-constexpr std::invoke_result_t<F, Args...> foo_invoke(F&& f, Args&&... args) noexcept(std::is_nothrow_invocable_v<F, Args...>)
-{
-    /*return invoke_impl(StaticFunctionFactory<f>::make_static_function(), std::forward<Args>(args)...);*/
-    return false;
-}
-struct Foo {
-    bool foo(int a, double b)
-    {
-        return a == int(b);
-    }
-};
-void test() {
-    foo_invoke(foo, 3, 3.14);
-    Foo f;
-    foo_invoke(&Foo::foo, 3, 3.14);
-}
 
 template <class C, class Pointed, class Object, class... Args>
 constexpr decltype(auto) invoke_memptr(Pointed C::* member, Object&& object, Args&&... args)
@@ -243,6 +226,30 @@ constexpr std::invoke_result_t<F, Args...> invoke(F&& f,
     else {
         return std::forward<F>(f)(std::forward<Args>(args)...);
     }
+}
+
+template <class F, class... Args>
+constexpr std::invoke_result_t<F, Args...> foo_invoke(F&& f, Args&&... args) noexcept(std::is_nothrow_invocable_v<F, Args...>)
+{
+    /*return invoke_impl(StaticFunctionFactory<f>::make_static_function(), std::forward<Args>(args)...);*/
+    if constexpr (std::is_member_pointer_v<detail::remove_cvref_t<F>>)
+        return detail::invoke_memptr(f, std::forward<Args>(args)...);
+    else {
+        return std::forward<F>(f)(std::forward<Args>(args)...);
+    }
+    return false;
+}
+
+struct Foo {
+    bool foo(int a, double b)
+    {
+        return a == int(b);
+    }
+};
+void test() {
+    foo_invoke(foo, 3, 3.14);
+    Foo f;
+    foo_invoke(&Foo::foo, f, 3, 3.14);
 }
 }// namespace shst
 
