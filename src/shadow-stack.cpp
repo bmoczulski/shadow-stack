@@ -3,6 +3,8 @@
 #include <cassert>
 #include <cstdint>
 #include <ctime>
+#include <iomanip>
+#include <iostream>
 #include <iterator>
 #include <pthread.h>
 #include <sys/types.h>
@@ -177,7 +179,10 @@ void StackShadow::check()
     using std::views::filter;
     using std::views::zip;
 
-    auto last_position = stack_frames.back().position;
+    size_t last_position = orig.position(orig.cend());
+	if (!stack_frames.empty()) {
+		last_position = stack_frames.back().position;
+	}
     auto orig_range = subrange(orig.caddress(last_position), orig.cend());
     auto shadow_range = subrange(caddress(last_position), cend());
     assert(orig_range.size() == shadow_range.size());
@@ -190,12 +195,29 @@ void StackShadow::check()
                          return res.in1 != get<0>(pair).end();
                      }),
              []([[maybe_unused]] auto const& pair) {
-                 /*for_each(*/
-                 /*	 get<0>(pair) | chunk(4) | std::ranges::transform([](auto const& ch4) {*/
-                 /**/
-                 /*		 })*/
-                 /*	 [](auto const& pair) {}*/
-                 /*	 );*/
+                 std::cout << std::hex;
+                 std::cout << std::setw(16) << static_cast<void const*>(&(*get<0>(pair).begin())) << ": ";
+
+                 auto old_flags = std::cout.setf(std::ios::hex);
+                 auto old_fill = std::cout.fill('0');
+
+                 for_each(get<0>(pair) | chunk(4), [first = bool{true}](auto const& ch8) mutable {
+                     std::cout << ((first) ? (first = false, "") : " ");
+                     for (auto const b : ch8) {
+                         std::cout << std::setw(2) << static_cast<unsigned>(b & 0xFF);
+                     }
+                 });
+                 std::cout << "    ";
+                 for_each(get<1>(pair) | chunk(4), [first = bool{true}](auto const& ch8) mutable {
+                     std::cout << ((first) ? (first = false, "") : " ");
+                     for (auto const b : ch8) {
+                         std::cout << std::setw(2) << static_cast<unsigned>(b & 0xFF);
+                     }
+                 });
+                 std::cout << '\n';
+
+                 std::cout.setf(old_flags);
+                 std::cout.fill(old_fill);
              });
 }
 
@@ -266,7 +288,7 @@ struct Caller
     f_t callee_fun;
 };
 
-extern "C" void* wrapper_impl(
+extern "C" void* invoke_impl(
         [[maybe_unused]] void* callee, void* x0, void* x1, void* x2, void* x3, void* x4, void* x5, void* x6, void* x7)
 {
     Caller caller{callee};
