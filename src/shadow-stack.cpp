@@ -1,8 +1,11 @@
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <cassert>
 #include <cstdint>
+#include <cstdlib>
 #include <ctime>
+#include <execinfo.h>
 #include <iomanip>
 #include <iostream>
 #include <iterator>
@@ -10,6 +13,7 @@
 #include <sys/types.h>
 #include <vector>
 #include <ranges>
+#include "shadow-stack-detail.h"
 
 namespace shst {
 
@@ -113,6 +117,7 @@ class StackShadow final : public Stack
     StackShadow()
         : orig{makeStackBase()}
         , shadow(orig.size())
+        , ignore_threshold{orig.size()}
     {
     }
 
@@ -124,6 +129,7 @@ class StackShadow final : public Stack
     void push(void* callee, void* stack_pointer);
     void check();
     void pop();
+    void ignore_above(void* stack_pointer);
 
   protected:
     [[nodiscard]] void const* cstack() const noexcept override
@@ -153,7 +159,16 @@ class StackShadow final : public Stack
     StackBase const orig;
     std::vector<uint8_t> shadow;
     std::vector<StackFrame> stack_frames;
+    size_t ignore_threshold;
 };
+
+void StackShadow::ignore_above(void* stack_pointer)
+{
+    auto const pos = orig.position(stack_pointer);
+    if (pos < orig.size()) {
+        ignore_threshold = pos;
+    }
+}
 
 void StackShadow::push(void* callee, void* sp)
 {
@@ -178,15 +193,27 @@ void StackShadow::check()
     using std::views::counted;
     using std::views::filter;
     using std::views::zip;
-
+#if 1
     size_t last_position = orig.position(orig.cend());
-	if (!stack_frames.empty()) {
-		last_position = stack_frames.back().position;
-	}
+    if (!stack_frames.empty()) {
+        last_position = stack_frames.back().position;
+    }
+    if (last_position >= ignore_threshold) {
+        return;
+    }
+    auto orig_range = subrange(orig.caddress(last_position), orig.cbegin() + ignore_threshold);
+    auto shadow_range = subrange(caddress(last_position), cbegin() + ignore_threshold);
+    assert(orig_range.size() == shadow_range.size());
+#else
+    size_t last_position = orig.position(orig.cend());
+    if (!stack_frames.empty()) {
+        last_position = stack_frames.back().position;
+    }
     auto orig_range = subrange(orig.caddress(last_position), orig.cend());
     auto shadow_range = subrange(caddress(last_position), cend());
     assert(orig_range.size() == shadow_range.size());
 
+#endif
     size_t const max_line = 32;
 
     for_each(std::views::zip(orig_range | chunk(max_line), shadow_range | chunk(max_line)) |
@@ -218,6 +245,11 @@ void StackShadow::check()
 
                  std::cout.setf(old_flags);
                  std::cout.fill(old_fill);
+                 std::array<void*, 1024> buff;
+
+                 auto n = backtrace(buff.data(), buff.size());
+                 backtrace_symbols_fd(buff.data(), n, 2);
+                 abort();
              });
 }
 
@@ -235,6 +267,7 @@ class StackThreadContext
     void push(void* callee, void* stack_pointer);
     void check();
     void pop();
+    void ignore_above(void* stack_pointer);
 
   private:
     StackShadow shadow;
@@ -255,44 +288,44 @@ void StackThreadContext::pop()
     shadow.pop();
 }
 
+void StackThreadContext::ignore_above(void* stack_pointer)
+{
+    shadow.ignore_above(stack_pointer);
+}
+
 StackThreadContext& getStackThreadContext()
 {
     thread_local StackThreadContext ctx;
     return ctx;
 }
 
-struct Caller
+void ignore_above(void* stack_pointer)
 {
-    Caller(void* callee)
-        : callee_fun(reinterpret_cast<f_t>(callee))
-    {
-        long stack_pointer;
-        StackThreadContext& ctx = getStackThreadContext();
-        ctx.check();
-        ctx.push(callee, &stack_pointer);
-    }
+    getStackThreadContext().ignore_above(stack_pointer);
+}
+namespace detail {
 
-    ~Caller()
-    {
-        StackThreadContext& ctx = getStackThreadContext();
-        ctx.check();
-        ctx.pop();
-    }
-
-    void* call(void* x0, void* x1, void* x2, void* x3, void* x4, void* x5, void* x6, void* x7)
-    {
-        return callee_fun(x0, x1, x2, x3, x4, x5, x6, x7);
-    }
-
-    using f_t = void* (*)(void*, void*, void*, void*, void*, void*, void*, void*);
-    f_t callee_fun;
-};
+guard::guard(void* callee, void* stack_pointer)
+{
+    StackThreadContext& ctx = getStackThreadContext();
+    ctx.check();
+    ctx.push(callee, stack_pointer);
+}
+guard::~guard()
+{
+    StackThreadContext& ctx = getStackThreadContext();
+    ctx.check();
+    ctx.pop();
+}
+}// namespace detail
 
 extern "C" void* invoke_impl(
         [[maybe_unused]] void* callee, void* x0, void* x1, void* x2, void* x3, void* x4, void* x5, void* x6, void* x7)
 {
-    Caller caller{callee};
-    return caller.call(x0, x1, x2, x3, x4, x5, x6, x7);
+    long stack_position;
+    detail::guard g{callee, &stack_position};
+    using f_t = void* (*)(void*, void*, void*, void*, void*, void*, void*, void*);
+    return reinterpret_cast<f_t>(callee)(x0, x1, x2, x3, x4, x5, x6, x7);
 }
 
 }// namespace shst
