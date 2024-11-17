@@ -1,0 +1,11 @@
+---
+CompileFlags:
+    Add: [-xc++, -std=c++23, -Wall, -Wextra, -I/usr/include, -I/usr/include/c++/13, -I/usr/include/x86_64-linux-gnu, -I/usr/include/x86_64-linux-gnu/c++/13 ]
+    Compiler: clang++
+
+Diagnostics:
+  ClangTidy:
+    Add: modernize*
+    Remove: modernize-use-trailing-return-type
+    CheckOptions:
+      readability-identifier-naming.VariableCase: CamelCase
