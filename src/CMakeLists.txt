@@ -19,3 +19,4 @@ target_link_libraries(basic-test shst)
 add_executable(main-test main.cpp)
 target_link_libraries(main-test shst)
 
+add_executable(callee_traits-test callee_traits-test.cpp)
