@@ -1,6 +1,7 @@
 #include "shadow-stack.h"
 #include <algorithm>
 #include <cstdint>
+#include <cstring>
 #include <iomanip>
 #include <ios>
 #include <ranges>
@@ -62,6 +63,38 @@ void print_range(std::string_view msg, auto const& range)
 
 void test_check()
 {
+    std::vector<char> orig(128, '+');
+    std::vector<char> shadow(128, '+');
+    shadow[54] = '?';
+    shadow[55] = '?';
+
+    auto ot = orig.data();
+    auto ob = ot + orig.size();
+    auto st = shadow.data();
+    // auto sb = st + shadow.size();
+    auto depth = ob - ot;
+
+    size_t const max_line = 16;
+
+        fprintf(stderr, "ORIG (CORRUPTED):\n");
+        for (int i = 0; i < depth; ++i)
+        {
+            if (i % max_line == 0) {
+                fprintf(stderr, "\n%16p: ", ot + i);
+            }
+            fprintf(stderr, "%c%02x%c", ot[i] != st[i] ? '[' : ' ', ot[i], ot[i] != st[i] ? ']' : ' ');
+        }
+        fprintf(stderr, "\n");
+        fprintf(stderr, "SHADOW (CORRECT):\n");
+        for (int i = 0; i < depth; ++i)
+        {
+            if (i % max_line == 0) {
+                fprintf(stderr, "\n%16p: ", st + i);
+            }
+            fprintf(stderr, "%c%02x%c", ot[i] != st[i] ? '[' : ' ', st[i], ot[i] != st[i] ? ']' : ' ');
+        }
+        fprintf(stderr, "\n");
+#if 0
     using std::ranges::for_each;
     using std::ranges::subrange;
     using std::views::chunk;
@@ -108,6 +141,7 @@ void test_check()
                  cout.setf(old_flags);
                  cout.fill(old_fill);
              });
+#endif
 }
 
 int main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[])

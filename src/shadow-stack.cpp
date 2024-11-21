@@ -4,6 +4,7 @@
 #include <cassert>
 #include <cstdint>
 #include <cstdlib>
+#include <cstring>
 #include <ctime>
 #include <execinfo.h>
 #include <iomanip>
@@ -14,6 +15,7 @@
 #include <vector>
 #include <ranges>
 #include "shadow-stack-detail.h"
+#include "callee_traits.hpp"
 
 namespace shst {
 
@@ -187,6 +189,63 @@ void StackShadow::push(void* callee, void* sp)
 
 void StackShadow::check()
 {
+#if 1
+    size_t last_position = orig.position(orig.cend());
+    if (!stack_frames.empty()) {
+        last_position = stack_frames.back().position;
+    }
+    if (last_position >= ignore_threshold) {
+        return;
+    }
+
+    auto ot = orig.caddress(last_position);
+    auto ob = orig.cbegin() + ignore_threshold;
+    auto st = caddress(last_position);
+    // auto sb = cbegin() + ignore_threshold;
+    auto depth = ob - ot;
+
+    if (memcmp(ot, st, depth) == 0)
+    {
+        // all is OK
+        return;
+    }
+
+    size_t const max_line = 32;
+
+    fprintf(stderr, "ORIG (CORRUPTED):");
+    for (int i = 0; i < depth; ++i)
+    {
+        if (i % max_line == 0) {
+            fprintf(stderr, "\n%16p: ", ot + i);
+        }
+        fprintf(stderr, "%c%02x%c", ot[i] != st[i] ? '[' : ' ', ot[i], ot[i] != st[i] ? ']' : ' ');
+    }
+    fprintf(stderr, "\n\nSHADOW (CORRECT):");
+    for (int i = 0; i < depth; ++i)
+    {
+        if (i % max_line == 0) {
+            fprintf(stderr, "\n%16p: ", st + i);
+        }
+        fprintf(stderr, "%c%02x%c", ot[i] != st[i] ? '[' : ' ', st[i], ot[i] != st[i] ? ']' : ' ');
+    }
+
+    fprintf(stderr, "\n\nFRAMES (recent first):\n");
+    for (auto frame = stack_frames.rbegin(); frame != stack_frames.rend(); ++frame)
+    {
+        fprintf(stderr, "position %10zd, size %10zd, callee %16p = %s\n",
+            frame->position, frame->size, frame->callee,
+            callee_traits::name(const_cast<void*>(frame->callee)).c_str()
+        );
+    }
+    fprintf(stderr, "\n");
+
+    fprintf(stderr, "backtrace:\n");
+    std::array<void*, 1024> buff;
+    auto n = backtrace(buff.data(), buff.size());
+    backtrace_symbols_fd(buff.data(), n, 2);
+    abort();
+
+#else
     using std::ranges::for_each;
     using std::ranges::subrange;
     using std::views::chunk;
@@ -251,6 +310,7 @@ void StackShadow::check()
                  backtrace_symbols_fd(buff.data(), n, 2);
                  abort();
              });
+#endif
 }
 
 void StackShadow::pop()
