@@ -193,6 +193,80 @@ void StackShadow::push(void* callee, void* sp)
     stack_frames.emplace_back(callee, stack_position, size);
 }
 
+struct MemoryPrinter
+{
+    MemoryPrinter(
+        size_t line_lenght = 0
+    ) :
+        line_lenght(line_lenght)
+    {
+    }
+
+    size_t align = 0;
+    size_t line_lenght = 0;
+
+    void dump(FILE *out,
+        const uint8_t *address,
+        const uint8_t *shadow,
+        size_t length,
+        bool with_address = true, bool with_preview = true)
+    {
+        if (!address || !length)
+        {
+            return;
+        }
+        if (!out)
+        {
+            out = stderr;
+        }
+        if (line_lenght == 0)
+        {
+            line_lenght = 32;
+        }
+
+        auto align_start = reinterpret_cast<uintptr_t>(address) % line_lenght;
+        const uint8_t *print_start = address - align_start;
+        auto align_end = reinterpret_cast<uintptr_t>(address + length) % line_lenght;
+        align_end = -align_end + (align_end ? line_lenght : 0);
+        const uint8_t *print_end = address + length + align_end;
+
+        for (auto line_start = print_start; line_start < print_end; line_start += line_lenght)
+        {
+            if (with_address)
+            {
+                fprintf(out, "%16p | ", line_start);
+            }
+            for (auto this_byte = line_start; this_byte < line_start + line_lenght; ++this_byte)
+            {
+                auto in_area = this_byte >= address && this_byte < address + length;
+                if (in_area)
+                {
+                    bool differs = shadow ? *this_byte != shadow[this_byte - address] : false;
+                    fprintf(out, "%c%02x%c",
+                        differs ? '[' : ' ',
+                        *this_byte,
+                        differs ? ']' : ' '
+                    );
+                }
+                else
+                {
+                    fprintf(out, "    ");
+                }
+            }
+            if (with_preview)
+            {
+                fprintf(out, " | ");
+                for (auto this_byte = line_start; this_byte < line_start + line_lenght; ++this_byte)
+                {
+                    auto in_area = this_byte >= address && this_byte < address + length;
+                    fprintf(out, "%c", in_area ? isprint(*this_byte) ? *this_byte : '.' : ' ');
+                }
+            }
+            fprintf(out, "\n");
+        }
+    }
+};
+
 void StackShadow::check(Direction direction)
 {
 #if 1
@@ -218,34 +292,32 @@ void StackShadow::check(Direction direction)
 
     size_t const max_line = 32;
 
-    fprintf(stderr, "ORIG (CORRUPTED):");
-    for (int i = 0; i < depth; ++i)
-    {
-        if (i % max_line == 0) {
-            fprintf(stderr, "\n%16p: ", ot + i);
-        }
-        fprintf(stderr, "%c%02x%c", ot[i] != st[i] ? '[' : ' ', ot[i], ot[i] != st[i] ? ']' : ' ');
-    }
-    fprintf(stderr, "\n\nSHADOW (CORRECT):");
-    for (int i = 0; i < depth; ++i)
-    {
-        if (i % max_line == 0) {
-            fprintf(stderr, "\n%16p: ", st + i);
-        }
-        fprintf(stderr, "%c%02x%c", ot[i] != st[i] ? '[' : ' ', st[i], ot[i] != st[i] ? ']' : ' ');
-    }
+    fprintf(stderr, "SHADOW STACK REPORT\n");
 
-    fprintf(stderr, "\n\nFRAMES (recent first):\n");
+    fprintf(stderr, "\nDuring %s:\n", direction == Direction::PreCall ? "PRE-CALL to" : "POST-RETURN from");
+    bool first = true;
     for (auto frame = stack_frames.rbegin(); frame != stack_frames.rend(); ++frame)
     {
-        fprintf(stderr, "position %10zd, size %10zd, callee %16p = %s\n",
+        fprintf(stderr, "  position %10zd, size %10zd, callee %16p = %s\n",
             frame->position, frame->size, frame->callee,
             callee_traits::name(const_cast<void*>(frame->callee)).c_str()
         );
+        if (first)
+        {
+            fprintf(stderr, "NEXT SHADOW FRAMES (recent first):\n");
+            first = false;
+        }
     }
-    fprintf(stderr, "\n");
 
-    fprintf(stderr, "backtrace:\n");
+    fprintf(stderr, "\n");
+    MemoryPrinter orig_dump(max_line);
+    fprintf(stderr, "ORIGINAL STACK (CORRUPTED):\n");
+    orig_dump.dump(stderr, ot, st, depth);
+
+    fprintf(stderr, "\nSHADOW STACK (CORRECT):\n");
+    orig_dump.dump(stderr, st, ot, depth);
+
+    fprintf(stderr, "\nbacktrace:\n");
     std::array<void*, 1024> buff;
     auto n = backtrace(buff.data(), buff.size());
     backtrace_symbols_fd(buff.data(), n, 2);
