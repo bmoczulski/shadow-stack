@@ -128,8 +128,14 @@ class StackShadow final : public Stack
         return shadow.size();
     }
 
+    enum class Direction
+    {
+        PreCall,
+        PostReturn
+    };
+
     void push(void* callee, void* stack_pointer);
-    void check();
+    void check(Direction);
     void pop();
     void ignore_above(void* stack_pointer);
 
@@ -187,7 +193,7 @@ void StackShadow::push(void* callee, void* sp)
     stack_frames.emplace_back(callee, stack_position, size);
 }
 
-void StackShadow::check()
+void StackShadow::check(Direction direction)
 {
 #if 1
     size_t last_position = orig.position(orig.cend());
@@ -325,7 +331,7 @@ class StackThreadContext
     StackThreadContext() = default;
 
     void push(void* callee, void* stack_pointer);
-    void check();
+    void check(StackShadow::Direction direction);
     void pop();
     void ignore_above(void* stack_pointer);
 
@@ -338,9 +344,9 @@ void StackThreadContext::push(void* callee, void* stack_pointer)
     shadow.push(callee, stack_pointer);
 }
 
-void StackThreadContext::check()
+void StackThreadContext::check(StackShadow::Direction direction)
 {
-    shadow.check();
+    shadow.check(direction);
 }
 
 void StackThreadContext::pop()
@@ -369,12 +375,12 @@ guard::guard(void* callee, void* stack_pointer)
 {
     StackThreadContext& ctx = getStackThreadContext();
     ctx.push(callee, stack_pointer);
-    ctx.check();
+    ctx.check(StackShadow::Direction::PreCall);
 }
 guard::~guard()
 {
     StackThreadContext& ctx = getStackThreadContext();
-    ctx.check();
+    ctx.check(StackShadow::Direction::PostReturn);
     ctx.pop();
 }
 }// namespace detail
