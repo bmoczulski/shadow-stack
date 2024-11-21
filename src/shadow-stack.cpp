@@ -196,14 +196,17 @@ void StackShadow::push(void* callee, void* sp)
 struct MemoryPrinter
 {
     MemoryPrinter(
-        size_t line_lenght = 0
+        size_t line_lenght = 0,
+        bool hide_equal_lines = false
     ) :
-        line_lenght(line_lenght)
+        line_lenght(line_lenght),
+        hide_equal_lines(hide_equal_lines)
     {
     }
 
-    size_t align = 0;
     size_t line_lenght = 0;
+    bool hide_equal_lines = false;
+
 
     void dump(FILE *out,
         const uint8_t *address,
@@ -221,7 +224,7 @@ struct MemoryPrinter
         }
         if (line_lenght == 0)
         {
-            line_lenght = 32;
+            line_lenght = 16;
         }
 
         auto align_start = reinterpret_cast<uintptr_t>(address) % line_lenght;
@@ -230,12 +233,34 @@ struct MemoryPrinter
         align_end = -align_end + (align_end ? line_lenght : 0);
         const uint8_t *print_end = address + length + align_end;
 
+        int hidden_lines = 0;
+        int hidden_bytes = 0;
         for (auto line_start = print_start; line_start < print_end; line_start += line_lenght)
         {
+            auto content_start = std::max(line_start, address);
+            auto content_end = std::min(line_start + line_lenght, address + length);
+            auto content_lenght = content_end - content_start;
+            auto content_offset = content_start - address;
+            auto line_differs = memcmp(content_start, shadow + content_offset, content_lenght);
+
+            if (hide_equal_lines && !line_differs)
+            {
+                hidden_bytes += content_lenght;
+                hidden_lines += 1;
+                continue;
+            }
+            if (hidden_bytes || hidden_lines)
+            {
+                fprintf(out, "    (%d equal bytes in %d lines hidden)\n", hidden_bytes, hidden_lines);
+                hidden_bytes = hidden_lines = 0;
+            }
+
             if (with_address)
             {
-                fprintf(out, "%16p | ", line_start);
+                fprintf(out, "%c %16p | ", line_differs ? '*' : ' ', line_start);
             }
+
+            // actual
             for (auto this_byte = line_start; this_byte < line_start + line_lenght; ++this_byte)
             {
                 auto in_area = this_byte >= address && this_byte < address + length;
@@ -262,7 +287,40 @@ struct MemoryPrinter
                     fprintf(out, "%c", in_area ? isprint(*this_byte) ? *this_byte : '.' : ' ');
                 }
             }
+            fprintf(out, " | ");
+            // shadow
+            for (auto this_byte = line_start; this_byte < line_start + line_lenght; ++this_byte)
+            {
+                auto in_area = this_byte >= address && this_byte < address + length;
+                if (in_area)
+                {
+                    bool differs = shadow ? *this_byte != shadow[this_byte - address] : false;
+                    fprintf(out, "%c%02x%c",
+                        differs ? '[' : ' ',
+                        shadow[this_byte - address],
+                        differs ? ']' : ' '
+                    );
+                }
+                else
+                {
+                    fprintf(out, "    ");
+                }
+            }
+            if (with_preview)
+            {
+                fprintf(out, " | ");
+                for (auto this_byte = line_start; this_byte < line_start + line_lenght; ++this_byte)
+                {
+                    auto in_area = this_byte >= address && this_byte < address + length;
+                    fprintf(out, "%c", in_area ? isprint(shadow[this_byte - address]) ? shadow[this_byte - address] : '.' : ' ');
+                }
+            }
             fprintf(out, "\n");
+        }
+        if (hidden_bytes || hidden_lines)
+        {
+            fprintf(out, "    (%d equal bytes in %d lines hidden)\n", hidden_bytes, hidden_lines);
+            hidden_bytes = hidden_lines = 0;
         }
     }
 };
@@ -290,7 +348,6 @@ void StackShadow::check(Direction direction)
         return;
     }
 
-    size_t const max_line = 32;
 
     fprintf(stderr, "SHADOW STACK REPORT\n");
 
@@ -310,12 +367,25 @@ void StackShadow::check(Direction direction)
     }
 
     fprintf(stderr, "\n");
-    MemoryPrinter orig_dump(max_line);
-    fprintf(stderr, "ORIGINAL STACK (CORRUPTED):\n");
-    orig_dump.dump(stderr, ot, st, depth);
+    int const max_line = 16;
+    const bool hide_equal_lines = false;
+    MemoryPrinter orig_dump(max_line, hide_equal_lines);
+    fprintf(stderr, "                      %*s      %s\n",
+        - max_line * 5,
+        "ORIGINAL STACK (CORRUPTED):",
+        "SHADOW STACK (CORRECT):");
 
-    fprintf(stderr, "\nSHADOW STACK (CORRECT):\n");
-    orig_dump.dump(stderr, st, ot, depth);
+    for (auto frame = stack_frames.rbegin(); frame != stack_frames.rend(); ++frame)
+    {
+        fprintf(stderr, "above is frame of: %16p = %s\n",
+            frame->callee,
+            callee_traits::name(const_cast<void*>(frame->callee)).c_str()
+        );
+        orig_dump.dump(stderr, orig.caddress(frame->position), caddress(frame->position), frame->size);
+    }
+
+    // fprintf(stderr, "ALL OF IT\n");
+    // orig_dump.dump(stderr, ot, st, depth);
 
     fprintf(stderr, "\nbacktrace:\n");
     std::array<void*, 1024> buff;
