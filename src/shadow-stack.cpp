@@ -368,8 +368,8 @@ namespace detail {
 guard::guard(void* callee, void* stack_pointer)
 {
     StackThreadContext& ctx = getStackThreadContext();
-    ctx.check();
     ctx.push(callee, stack_pointer);
+    ctx.check();
 }
 guard::~guard()
 {
