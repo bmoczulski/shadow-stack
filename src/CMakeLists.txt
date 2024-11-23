@@ -20,3 +20,7 @@ add_executable(main-test main.cpp)
 target_link_libraries(main-test shst)
 
 add_executable(callee_traits-test callee_traits-test.cpp)
+if (LIBEXECINFO_FOUND)
+    # execinfo must be linked explicitly for musl libc (e.g.: in alpine qemu)
+    target_link_libraries(callee_traits-test execinfo)
+endif ()
