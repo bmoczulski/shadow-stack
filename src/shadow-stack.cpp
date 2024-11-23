@@ -134,6 +134,16 @@ class StackShadow final : public Stack
         PostReturn
     };
 
+    enum class Reaction
+    {
+        ignore,
+        report_and_continue,
+        report_and_abort,
+        report_heal_and_continue,
+        heal_and_continue
+    };
+
+    Reaction desired_reaction();
     void push(void* callee, void* stack_pointer);
     void check(Direction);
     void pop();
@@ -169,6 +179,30 @@ class StackShadow final : public Stack
     std::vector<StackFrame> stack_frames;
     size_t ignore_threshold;
 };
+
+StackShadow::Reaction StackShadow::desired_reaction()
+{
+    auto reaction = getenv("SHST_REACTION");
+    if (reaction == nullptr || strcmp(reaction, "abort") == 0) {
+        return Reaction::report_and_abort;
+    }
+    else if (strcmp(reaction, "ignore") == 0) {
+        return Reaction::ignore;
+    }
+    else if (strcmp(reaction, "report") == 0) {
+        return Reaction::report_and_continue;
+    }
+    else if (strcmp(reaction, "heal") == 0) {
+        return Reaction::report_heal_and_continue;
+    }
+    else if (strcmp(reaction, "quiet-heal") == 0) {
+        return Reaction::heal_and_continue;
+    }
+    else {
+        // default
+        return Reaction::report_and_abort;
+    }
+}
 
 void StackShadow::ignore_above(void* stack_pointer)
 {
@@ -348,6 +382,16 @@ void StackShadow::check(Direction direction)
         return;
     }
 
+    auto reaction = desired_reaction();
+    if (reaction == Reaction::ignore)
+    {
+        return;
+    }
+    if (reaction == Reaction::heal_and_continue)
+    {
+        memcpy(const_cast<uint8_t*>(ot), st, depth);
+        return;
+    }
 
     fprintf(stderr, "SHADOW STACK REPORT\n");
 
@@ -391,7 +435,24 @@ void StackShadow::check(Direction direction)
     std::array<void*, 1024> buff;
     auto n = backtrace(buff.data(), buff.size());
     backtrace_symbols_fd(buff.data(), n, 2);
-    abort();
+
+    switch (reaction)
+    {
+        case Reaction::report_and_continue:
+            // no-op, report already printed
+            break;
+        case Reaction::report_heal_and_continue:
+            memcpy(const_cast<uint8_t*>(ot), st, depth);
+            break;
+        case Reaction::ignore:
+        case Reaction::heal_and_continue:
+            // no-op, handled above
+            break;
+        case Reaction::report_and_abort:
+        default:
+            abort();
+            break;
+    }
 
 #else
     using std::ranges::for_each;
