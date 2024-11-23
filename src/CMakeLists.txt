@@ -7,10 +7,12 @@ endif()
 
 set(SHST_LIBRARY_SOURCES shadow-stack.h shadow-stack.cpp)
 
-add_library(shst ${SHST_LIBRARY_SOURCES})
+add_library(shst SHARED ${SHST_LIBRARY_SOURCES})
+add_library(shst-static ${SHST_LIBRARY_SOURCES})
 if (LIBEXECINFO_FOUND)
     # execinfo must be linked explicitly for musl libc (e.g.: in alpine qemu)
     target_link_libraries(shst execinfo)
+    target_link_libraries(shst-static execinfo)
 endif ()
 
 add_executable(basic-test basic-test.cpp)
