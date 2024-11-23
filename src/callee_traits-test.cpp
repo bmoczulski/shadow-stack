@@ -39,6 +39,7 @@ struct S
     int foo() { DO_BACKTRACE(); return ++f; }
     int foo() const { DO_BACKTRACE(); return -f; }
     virtual int bar() { return f; }
+    virtual int bar(int i) { return f + i; }
 };
 
 struct D : public S
@@ -85,22 +86,29 @@ int main()
         PRINT_NAME(sf);          // std::function
 
         PRINT_NAME(&S::foo);     // non-virtual method
-        PRINT_NAME(cs, &S::foo); // non-virtual method (const)    // WRONG, this picks non-const one!
+        PRINT_NAME(cs, static_cast<int(S::*)()>(&S::foo)); // non-virtual method
+        PRINT_NAME(cs, static_cast<int(S::*)()const>(&S::foo)); // non-virtual method
 
-        PRINT_NAME(&S::bar);     // unbound virtual method
-        PRINT_NAME(s, &S::bar);  // bound virtual method via instance reference
-        PRINT_NAME(p, &S::bar);  // bound virtual method via instance pointer
-        PRINT_NAME(cs, &S::bar); // bound virtual method (const)  // WRONG, this picks non-const one!
+        PRINT_NAME(static_cast<int(S::*)()>(&S::bar));     // unbound virtual method
+        PRINT_NAME(static_cast<int(S::*)(int)>(&S::bar));     // unbound virtual method
+
+        // unbound will be subsequent number in v-table, e.g. 0x1, bound will be the actual address (runtime-calculated)
+        // https://gcc.gnu.org/onlinedocs/gcc/Bound-member-functions.html
+
+        PRINT_NAME(s, static_cast<int(S::*)()>(&S::bar));  // bound virtual method via instance reference
+        PRINT_NAME(s, static_cast<int(S::*)(int)>(&S::bar));  // bound virtual method via instance reference
+        // PRINT_NAME(p, &S::bar);  // bound virtual method via instance pointer
+        // PRINT_NAME(cs, &S::bar); // bound virtual method (const)  // WRONG, this picks non-const one!
 
 
-        PRINT_NAME(&D::bar);     // unbound virtual method in derived class
-        PRINT_NAME(d, &D::bar);  // bound (child) virtual method in derived class via instance reference
-        PRINT_NAME(d, &S::bar);  // bound (parent) virtual method in derived class via instance reference
-        PRINT_NAME(dp, &D::bar);  // bound (child) virtual method in derived class via instance pointer
-        PRINT_NAME(dp, &S::bar);  // bound (parent) virtual method in derived class via instance pointer
-        PRINT_NAME(pr, &D::bar);  // bound (child) virtual method in derived class via reference to parent
-        PRINT_NAME(pr, &S::bar);  // bound (parent) virtual method in derived class via reference to parent
-        PRINT_NAME(pp, &D::bar);  // bound (child) virtual method in derived class via pointer to parent
-        PRINT_NAME(pp, &S::bar);  // bound (parent) virtual method in derived class via pointer to parent
+        // PRINT_NAME(&D::bar);     // unbound virtual method in derived class
+        // PRINT_NAME(d, &D::bar);  // bound (child) virtual method in derived class via instance reference
+        // PRINT_NAME(d, &S::bar);  // bound (parent) virtual method in derived class via instance reference
+        // PRINT_NAME(dp, &D::bar);  // bound (child) virtual method in derived class via instance pointer
+        // PRINT_NAME(dp, &S::bar);  // bound (parent) virtual method in derived class via instance pointer
+        // PRINT_NAME(pr, &D::bar);  // bound (child) virtual method in derived class via reference to parent
+        // PRINT_NAME(pr, &S::bar);  // bound (parent) virtual method in derived class via reference to parent
+        // PRINT_NAME(pp, &D::bar);  // bound (child) virtual method in derived class via pointer to parent
+        // PRINT_NAME(pp, &S::bar);  // bound (parent) virtual method in derived class via pointer to parent
     }
 }
