@@ -144,6 +144,8 @@ class StackShadow final : public Stack
     };
 
     Reaction desired_reaction();
+    int dump_width();
+
     void push(void* callee, void* stack_pointer);
     void check(Direction);
     void pop();
@@ -202,6 +204,20 @@ StackShadow::Reaction StackShadow::desired_reaction()
         // default
         return Reaction::report_and_abort;
     }
+}
+
+int StackShadow::dump_width()
+{
+    int width = 16;
+    if (auto env = getenv("SHST_DUMP_WIDTH"))
+    {
+        width = std::atoi(env);
+        if (!width)
+        {
+            width = 16;
+        }
+    }
+    return width;
 }
 
 void StackShadow::ignore_above(void* stack_pointer)
@@ -411,7 +427,7 @@ void StackShadow::check(Direction direction)
     }
 
     fprintf(stderr, "\n");
-    int const max_line = 16;
+    int const max_line = dump_width();
     const bool hide_equal_lines = false;
     MemoryPrinter orig_dump(max_line, hide_equal_lines);
     fprintf(stderr, "                      %*s      %s\n",
