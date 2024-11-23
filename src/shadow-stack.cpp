@@ -153,6 +153,7 @@ class StackShadow final : public Stack
     Reaction desired_reaction();
     int dump_width();
     DumpArea dump_area();
+    bool dump_hide_equal_lines();
 
     void push(void* callee, void* stack_pointer);
     void check(Direction);
@@ -243,6 +244,21 @@ StackShadow::DumpArea StackShadow::dump_area()
     else {
         return DumpArea::both;
     }
+}
+
+bool StackShadow::dump_hide_equal_lines()
+{
+    auto hide = getenv("SHST_DUMP_HIDE_EQUAL");
+    if (hide)
+    {
+        if (strcasecmp(hide, "yes") == 0 ||
+            strcasecmp(hide, "true") == 0 ||
+            strcasecmp(hide, "1") == 0)
+        {
+            return true;
+        }
+    }
+    return false;
 }
 
 void StackShadow::ignore_above(void* stack_pointer)
@@ -486,7 +502,7 @@ void StackShadow::check(Direction direction)
     fprintf(stderr, "\n");
     int const max_line = dump_width();
     const bool hide_equal_lines = false;
-    MemoryPrinter orig_dump(max_line, hide_equal_lines, dump_area());
+    MemoryPrinter orig_dump(max_line, dump_hide_equal_lines(), dump_area());
     orig_dump.print_header();
 
     for (auto frame = stack_frames.rbegin(); frame != stack_frames.rend(); ++frame)
