@@ -143,8 +143,16 @@ class StackShadow final : public Stack
         heal_and_continue
     };
 
+    enum class DumpArea
+    {
+        both,
+        original,
+        shadow
+    };
+
     Reaction desired_reaction();
     int dump_width();
+    DumpArea dump_area();
 
     void push(void* callee, void* stack_pointer);
     void check(Direction);
@@ -220,6 +228,23 @@ int StackShadow::dump_width()
     return width;
 }
 
+StackShadow::DumpArea StackShadow::dump_area()
+{
+    auto area = getenv("SHST_DUMP_AREA");
+    if (area == nullptr || strcmp(area, "both") == 0) {
+        return DumpArea::both;
+    }
+    else if (strcmp(area, "original") == 0) {
+        return DumpArea::original;
+    }
+    else if (strcmp(area, "shadow") == 0) {
+        return DumpArea::shadow;
+    }
+    else {
+        return DumpArea::both;
+    }
+}
+
 void StackShadow::ignore_above(void* stack_pointer)
 {
     auto const pos = orig.position(stack_pointer);
@@ -247,16 +272,39 @@ struct MemoryPrinter
 {
     MemoryPrinter(
         size_t line_lenght = 0,
-        bool hide_equal_lines = false
+        bool hide_equal_lines = false,
+        StackShadow::DumpArea area = StackShadow::DumpArea::both
     ) :
         line_lenght(line_lenght),
-        hide_equal_lines(hide_equal_lines)
+        hide_equal_lines(hide_equal_lines),
+        area(area)
     {
     }
 
     size_t line_lenght = 0;
     bool hide_equal_lines = false;
+    StackShadow::DumpArea area = StackShadow::DumpArea::both;
 
+    void print_header()
+    {
+        if (area == StackShadow::DumpArea::both)
+        {
+            fprintf(stderr, "                      %*s      %s\n",
+                - static_cast<int>(line_lenght) * 5,
+                "ORIGINAL STACK (CORRUPTED):",
+                "SHADOW STACK (CORRECT):");
+        }
+        else if (area == StackShadow::DumpArea::original)
+        {
+            fprintf(stderr, "                      %s\n",
+                "ORIGINAL STACK (CORRUPTED):");
+        }
+        else
+        {
+            fprintf(stderr, "                      %s\n",
+                "SHADOW STACK (CORRECT):");
+        }
+    }
 
     void dump(FILE *out,
         const uint8_t *address,
@@ -311,58 +359,67 @@ struct MemoryPrinter
             }
 
             // actual
-            for (auto this_byte = line_start; this_byte < line_start + line_lenght; ++this_byte)
+            if (area == StackShadow::DumpArea::both || area == StackShadow::DumpArea::original)
             {
-                auto in_area = this_byte >= address && this_byte < address + length;
-                if (in_area)
-                {
-                    bool differs = shadow ? *this_byte != shadow[this_byte - address] : false;
-                    fprintf(out, "%c%02x%c",
-                        differs ? '[' : ' ',
-                        *this_byte,
-                        differs ? ']' : ' '
-                    );
-                }
-                else
-                {
-                    fprintf(out, "    ");
-                }
-            }
-            if (with_preview)
-            {
-                fprintf(out, " | ");
                 for (auto this_byte = line_start; this_byte < line_start + line_lenght; ++this_byte)
                 {
                     auto in_area = this_byte >= address && this_byte < address + length;
-                    fprintf(out, "%c", in_area ? isprint(*this_byte) ? *this_byte : '.' : ' ');
+                    if (in_area)
+                    {
+                        bool differs = shadow ? *this_byte != shadow[this_byte - address] : false;
+                        fprintf(out, "%c%02x%c",
+                            differs ? '[' : ' ',
+                            *this_byte,
+                            differs ? ']' : ' '
+                        );
+                    }
+                    else
+                    {
+                        fprintf(out, "    ");
+                    }
+                }
+                if (with_preview)
+                {
+                    fprintf(out, " | ");
+                    for (auto this_byte = line_start; this_byte < line_start + line_lenght; ++this_byte)
+                    {
+                        auto in_area = this_byte >= address && this_byte < address + length;
+                        fprintf(out, "%c", in_area ? isprint(*this_byte) ? *this_byte : '.' : ' ');
+                    }
                 }
             }
-            fprintf(out, " | ");
+            if (area == StackShadow::DumpArea::both)
+            {
+                fprintf(out, " | ");
+            }
             // shadow
-            for (auto this_byte = line_start; this_byte < line_start + line_lenght; ++this_byte)
+            if (area == StackShadow::DumpArea::both || area == StackShadow::DumpArea::shadow)
             {
-                auto in_area = this_byte >= address && this_byte < address + length;
-                if (in_area)
-                {
-                    bool differs = shadow ? *this_byte != shadow[this_byte - address] : false;
-                    fprintf(out, "%c%02x%c",
-                        differs ? '[' : ' ',
-                        shadow[this_byte - address],
-                        differs ? ']' : ' '
-                    );
-                }
-                else
-                {
-                    fprintf(out, "    ");
-                }
-            }
-            if (with_preview)
-            {
-                fprintf(out, " | ");
                 for (auto this_byte = line_start; this_byte < line_start + line_lenght; ++this_byte)
                 {
                     auto in_area = this_byte >= address && this_byte < address + length;
-                    fprintf(out, "%c", in_area ? isprint(shadow[this_byte - address]) ? shadow[this_byte - address] : '.' : ' ');
+                    if (in_area)
+                    {
+                        bool differs = shadow ? *this_byte != shadow[this_byte - address] : false;
+                        fprintf(out, "%c%02x%c",
+                            differs ? '[' : ' ',
+                            shadow[this_byte - address],
+                            differs ? ']' : ' '
+                        );
+                    }
+                    else
+                    {
+                        fprintf(out, "    ");
+                    }
+                }
+                if (with_preview)
+                {
+                    fprintf(out, " | ");
+                    for (auto this_byte = line_start; this_byte < line_start + line_lenght; ++this_byte)
+                    {
+                        auto in_area = this_byte >= address && this_byte < address + length;
+                        fprintf(out, "%c", in_area ? isprint(shadow[this_byte - address]) ? shadow[this_byte - address] : '.' : ' ');
+                    }
                 }
             }
             fprintf(out, "\n");
@@ -429,11 +486,8 @@ void StackShadow::check(Direction direction)
     fprintf(stderr, "\n");
     int const max_line = dump_width();
     const bool hide_equal_lines = false;
-    MemoryPrinter orig_dump(max_line, hide_equal_lines);
-    fprintf(stderr, "                      %*s      %s\n",
-        - max_line * 5,
-        "ORIGINAL STACK (CORRUPTED):",
-        "SHADOW STACK (CORRECT):");
+    MemoryPrinter orig_dump(max_line, hide_equal_lines, dump_area());
+    orig_dump.print_header();
 
     for (auto frame = stack_frames.rbegin(); frame != stack_frames.rend(); ++frame)
     {
