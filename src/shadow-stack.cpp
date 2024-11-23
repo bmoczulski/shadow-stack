@@ -196,20 +196,15 @@ StackShadow::Reaction StackShadow::desired_reaction()
     auto reaction = getenv("SHST_REACTION");
     if (reaction == nullptr || strcmp(reaction, "abort") == 0) {
         return Reaction::report_and_abort;
-    }
-    else if (strcmp(reaction, "ignore") == 0) {
+    } else if (strcmp(reaction, "ignore") == 0) {
         return Reaction::ignore;
-    }
-    else if (strcmp(reaction, "report") == 0) {
+    } else if (strcmp(reaction, "report") == 0) {
         return Reaction::report_and_continue;
-    }
-    else if (strcmp(reaction, "heal") == 0) {
+    } else if (strcmp(reaction, "heal") == 0) {
         return Reaction::report_heal_and_continue;
-    }
-    else if (strcmp(reaction, "quiet-heal") == 0) {
+    } else if (strcmp(reaction, "quiet-heal") == 0) {
         return Reaction::heal_and_continue;
-    }
-    else {
+    } else {
         // default
         return Reaction::report_and_abort;
     }
@@ -218,11 +213,9 @@ StackShadow::Reaction StackShadow::desired_reaction()
 int StackShadow::dump_width()
 {
     int width = 16;
-    if (auto env = getenv("SHST_DUMP_WIDTH"))
-    {
+    if (auto env = getenv("SHST_DUMP_WIDTH")) {
         width = std::atoi(env);
-        if (!width)
-        {
+        if (!width) {
             width = 16;
         }
     }
@@ -234,14 +227,11 @@ StackShadow::DumpArea StackShadow::dump_area()
     auto area = getenv("SHST_DUMP_AREA");
     if (area == nullptr || strcmp(area, "both") == 0) {
         return DumpArea::both;
-    }
-    else if (strcmp(area, "original") == 0) {
+    } else if (strcmp(area, "original") == 0) {
         return DumpArea::original;
-    }
-    else if (strcmp(area, "shadow") == 0) {
+    } else if (strcmp(area, "shadow") == 0) {
         return DumpArea::shadow;
-    }
-    else {
+    } else {
         return DumpArea::both;
     }
 }
@@ -249,12 +239,8 @@ StackShadow::DumpArea StackShadow::dump_area()
 bool StackShadow::dump_hide_equal_lines()
 {
     auto hide = getenv("SHST_DUMP_HIDE_EQUAL");
-    if (hide)
-    {
-        if (strcasecmp(hide, "yes") == 0 ||
-            strcasecmp(hide, "true") == 0 ||
-            strcasecmp(hide, "1") == 0)
-        {
+    if (hide) {
+        if (strcasecmp(hide, "yes") == 0 || strcasecmp(hide, "true") == 0 || strcasecmp(hide, "1") == 0) {
             return true;
         }
     }
@@ -286,14 +272,12 @@ void StackShadow::push(void* callee, void* sp)
 
 struct MemoryPrinter
 {
-    MemoryPrinter(
-        size_t line_lenght = 0,
-        bool hide_equal_lines = false,
-        StackShadow::DumpArea area = StackShadow::DumpArea::both
-    ) :
-        line_lenght(line_lenght),
-        hide_equal_lines(hide_equal_lines),
-        area(area)
+    MemoryPrinter(size_t line_lenght = 0,
+                  bool hide_equal_lines = false,
+                  StackShadow::DumpArea area = StackShadow::DumpArea::both)
+        : line_lenght(line_lenght)
+        , hide_equal_lines(hide_equal_lines)
+        , area(area)
     {
     }
 
@@ -303,145 +287,112 @@ struct MemoryPrinter
 
     void print_header()
     {
-        if (area == StackShadow::DumpArea::both)
-        {
-            fprintf(stderr, "                      %*s      %s\n",
-                - static_cast<int>(line_lenght) * 5,
-                "ORIGINAL STACK (CORRUPTED):",
-                "SHADOW STACK (CORRECT):");
-        }
-        else if (area == StackShadow::DumpArea::original)
-        {
-            fprintf(stderr, "                      %s\n",
-                "ORIGINAL STACK (CORRUPTED):");
-        }
-        else
-        {
-            fprintf(stderr, "                      %s\n",
-                "SHADOW STACK (CORRECT):");
+        if (area == StackShadow::DumpArea::both) {
+            fprintf(stderr,
+                    "                      %*s      %s\n",
+                    -static_cast<int>(line_lenght) * 5,
+                    "ORIGINAL STACK (CORRUPTED):",
+                    "SHADOW STACK (CORRECT):");
+        } else if (area == StackShadow::DumpArea::original) {
+            fprintf(stderr, "                      %s\n", "ORIGINAL STACK (CORRUPTED):");
+        } else {
+            fprintf(stderr, "                      %s\n", "SHADOW STACK (CORRECT):");
         }
     }
 
-    void dump(FILE *out,
-        const uint8_t *address,
-        const uint8_t *shadow,
-        size_t length,
-        bool with_address = true, bool with_preview = true)
+    void dump(FILE* out,
+              const uint8_t* address,
+              const uint8_t* shadow,
+              size_t length,
+              bool with_address = true,
+              bool with_preview = true)
     {
-        if (!address || !length)
-        {
+        if (!address || !length) {
             return;
         }
-        if (!out)
-        {
+        if (!out) {
             out = stderr;
         }
-        if (line_lenght == 0)
-        {
+        if (line_lenght == 0) {
             line_lenght = 16;
         }
 
         auto align_start = reinterpret_cast<uintptr_t>(address) % line_lenght;
-        const uint8_t *print_start = address - align_start;
+        const uint8_t* print_start = address - align_start;
         auto align_end = reinterpret_cast<uintptr_t>(address + length) % line_lenght;
         align_end = -align_end + (align_end ? line_lenght : 0);
-        const uint8_t *print_end = address + length + align_end;
+        const uint8_t* print_end = address + length + align_end;
 
         int hidden_lines = 0;
         int hidden_bytes = 0;
-        for (auto line_start = print_start; line_start < print_end; line_start += line_lenght)
-        {
+        for (auto line_start = print_start; line_start < print_end; line_start += line_lenght) {
             auto content_start = std::max(line_start, address);
             auto content_end = std::min(line_start + line_lenght, address + length);
             auto content_lenght = content_end - content_start;
             auto content_offset = content_start - address;
             auto line_differs = memcmp(content_start, shadow + content_offset, content_lenght);
 
-            if (hide_equal_lines && !line_differs)
-            {
+            if (hide_equal_lines && !line_differs) {
                 hidden_bytes += content_lenght;
                 hidden_lines += 1;
                 continue;
             }
-            if (hidden_bytes || hidden_lines)
-            {
+            if (hidden_bytes || hidden_lines) {
                 fprintf(out, "    (%d equal bytes in %d lines hidden)\n", hidden_bytes, hidden_lines);
                 hidden_bytes = hidden_lines = 0;
             }
 
-            if (with_address)
-            {
+            if (with_address) {
                 fprintf(out, "%c %16p | ", line_differs ? '*' : ' ', line_start);
             }
 
             // actual
-            if (area == StackShadow::DumpArea::both || area == StackShadow::DumpArea::original)
-            {
-                for (auto this_byte = line_start; this_byte < line_start + line_lenght; ++this_byte)
-                {
+            if (area == StackShadow::DumpArea::both || area == StackShadow::DumpArea::original) {
+                for (auto this_byte = line_start; this_byte < line_start + line_lenght; ++this_byte) {
                     auto in_area = this_byte >= address && this_byte < address + length;
-                    if (in_area)
-                    {
+                    if (in_area) {
                         bool differs = shadow ? *this_byte != shadow[this_byte - address] : false;
-                        fprintf(out, "%c%02x%c",
-                            differs ? '[' : ' ',
-                            *this_byte,
-                            differs ? ']' : ' '
-                        );
-                    }
-                    else
-                    {
+                        fprintf(out, "%c%02x%c", differs ? '[' : ' ', *this_byte, differs ? ']' : ' ');
+                    } else {
                         fprintf(out, "    ");
                     }
                 }
-                if (with_preview)
-                {
+                if (with_preview) {
                     fprintf(out, " | ");
-                    for (auto this_byte = line_start; this_byte < line_start + line_lenght; ++this_byte)
-                    {
+                    for (auto this_byte = line_start; this_byte < line_start + line_lenght; ++this_byte) {
                         auto in_area = this_byte >= address && this_byte < address + length;
                         fprintf(out, "%c", in_area ? isprint(*this_byte) ? *this_byte : '.' : ' ');
                     }
                 }
             }
-            if (area == StackShadow::DumpArea::both)
-            {
+            if (area == StackShadow::DumpArea::both) {
                 fprintf(out, " | ");
             }
             // shadow
-            if (area == StackShadow::DumpArea::both || area == StackShadow::DumpArea::shadow)
-            {
-                for (auto this_byte = line_start; this_byte < line_start + line_lenght; ++this_byte)
-                {
+            if (area == StackShadow::DumpArea::both || area == StackShadow::DumpArea::shadow) {
+                for (auto this_byte = line_start; this_byte < line_start + line_lenght; ++this_byte) {
                     auto in_area = this_byte >= address && this_byte < address + length;
-                    if (in_area)
-                    {
+                    if (in_area) {
                         bool differs = shadow ? *this_byte != shadow[this_byte - address] : false;
-                        fprintf(out, "%c%02x%c",
-                            differs ? '[' : ' ',
-                            shadow[this_byte - address],
-                            differs ? ']' : ' '
-                        );
-                    }
-                    else
-                    {
+                        fprintf(out, "%c%02x%c", differs ? '[' : ' ', shadow[this_byte - address], differs ? ']' : ' ');
+                    } else {
                         fprintf(out, "    ");
                     }
                 }
-                if (with_preview)
-                {
+                if (with_preview) {
                     fprintf(out, " | ");
-                    for (auto this_byte = line_start; this_byte < line_start + line_lenght; ++this_byte)
-                    {
+                    for (auto this_byte = line_start; this_byte < line_start + line_lenght; ++this_byte) {
                         auto in_area = this_byte >= address && this_byte < address + length;
-                        fprintf(out, "%c", in_area ? isprint(shadow[this_byte - address]) ? shadow[this_byte - address] : '.' : ' ');
+                        fprintf(out,
+                                "%c",
+                                in_area ? isprint(shadow[this_byte - address]) ? shadow[this_byte - address] : '.'
+                                        : ' ');
                     }
                 }
             }
             fprintf(out, "\n");
         }
-        if (hidden_bytes || hidden_lines)
-        {
+        if (hidden_bytes || hidden_lines) {
             fprintf(out, "    (%d equal bytes in %d lines hidden)\n", hidden_bytes, hidden_lines);
             hidden_bytes = hidden_lines = 0;
         }
@@ -465,19 +416,16 @@ void StackShadow::check(Direction direction)
     // auto sb = cbegin() + ignore_threshold;
     auto depth = ob - ot;
 
-    if (memcmp(ot, st, depth) == 0)
-    {
+    if (memcmp(ot, st, depth) == 0) {
         // all is OK
         return;
     }
 
     auto reaction = desired_reaction();
-    if (reaction == Reaction::ignore)
-    {
+    if (reaction == Reaction::ignore) {
         return;
     }
-    if (reaction == Reaction::heal_and_continue)
-    {
+    if (reaction == Reaction::heal_and_continue) {
         memcpy(const_cast<uint8_t*>(ot), st, depth);
         return;
     }
@@ -486,14 +434,14 @@ void StackShadow::check(Direction direction)
 
     fprintf(stderr, "\nDuring %s:\n", direction == Direction::PreCall ? "PRE-CALL to" : "POST-RETURN from");
     bool first = true;
-    for (auto frame = stack_frames.rbegin(); frame != stack_frames.rend(); ++frame)
-    {
-        fprintf(stderr, "  position %10zd, size %10zd, callee %16p = %s\n",
-            frame->position, frame->size, frame->callee,
-            callee_traits::name(const_cast<void*>(frame->callee)).c_str()
-        );
-        if (first)
-        {
+    for (auto frame = stack_frames.rbegin(); frame != stack_frames.rend(); ++frame) {
+        fprintf(stderr,
+                "  position %10zd, size %10zd, callee %16p = %s\n",
+                frame->position,
+                frame->size,
+                frame->callee,
+                callee_traits::name(const_cast<void*>(frame->callee)).c_str());
+        if (first) {
             fprintf(stderr, "NEXT SHADOW FRAMES (recent first):\n");
             first = false;
         }
@@ -505,12 +453,11 @@ void StackShadow::check(Direction direction)
     MemoryPrinter orig_dump(max_line, dump_hide_equal_lines(), dump_area());
     orig_dump.print_header();
 
-    for (auto frame = stack_frames.rbegin(); frame != stack_frames.rend(); ++frame)
-    {
-        fprintf(stderr, "above is frame of: %16p = %s\n",
-            frame->callee,
-            callee_traits::name(const_cast<void*>(frame->callee)).c_str()
-        );
+    for (auto frame = stack_frames.rbegin(); frame != stack_frames.rend(); ++frame) {
+        fprintf(stderr,
+                "above is frame of: %16p = %s\n",
+                frame->callee,
+                callee_traits::name(const_cast<void*>(frame->callee)).c_str());
         orig_dump.dump(stderr, orig.caddress(frame->position), caddress(frame->position), frame->size);
     }
 
@@ -522,8 +469,7 @@ void StackShadow::check(Direction direction)
     auto n = backtrace(buff.data(), buff.size());
     backtrace_symbols_fd(buff.data(), n, 2);
 
-    switch (reaction)
-    {
+    switch (reaction) {
         case Reaction::report_and_continue:
             // no-op, report already printed
             break;
@@ -599,6 +545,7 @@ void StackShadow::check(Direction direction)
 
                  std::cout.setf(old_flags);
                  std::cout.fill(old_fill);
+                 std::cout.flush();
                  std::array<void*, 1024> buff;
 
                  auto n = backtrace(buff.data(), buff.size());
@@ -658,6 +605,7 @@ void ignore_above(void* stack_pointer)
 {
     getStackThreadContext().ignore_above(stack_pointer);
 }
+
 namespace detail {
 
 guard::guard(void* callee, void* stack_pointer)
@@ -666,16 +614,19 @@ guard::guard(void* callee, void* stack_pointer)
     ctx.push(callee, stack_pointer);
     ctx.check(StackShadow::Direction::PreCall);
 }
+
 guard::~guard()
 {
     StackThreadContext& ctx = getStackThreadContext();
     ctx.check(StackShadow::Direction::PostReturn);
     ctx.pop();
 }
+
 }// namespace detail
 }// namespace shst
 
-extern "C" void* shst_invoke_impl(void* callee, void* x0, void* x1, void* x2, void* x3, void* x4, void* x5, void* x6, void* x7)
+extern "C" void*
+shst_invoke_impl(void* callee, void* x0, void* x1, void* x2, void* x3, void* x4, void* x5, void* x6, void* x7)
 {
     long stack_position;
     shst::detail::guard g{callee, &stack_position};
