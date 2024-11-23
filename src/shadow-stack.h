@@ -1,20 +1,15 @@
 #pragma once
-
 #include "shadow-stack-detail.h"
 
-namespace shst {
+#define shst_invoke(f, ...) \
+   (typeof( f(__VA_ARGS__) )) \
+   shst_invoke_impl((shst_f)f, ##__VA_ARGS__)
 
-extern "C" long invoke_impl(void* callee, ...);
+#ifdef __cplusplus
+#define MAYBE_EXTERN_C extern "C"
+#else
+#define MAYBE_EXTERN_C
+#endif
 
-#define a_cast(toType) shst::details::mad_cast<toType>
-
-#define WRAPPER_IMPL(rettype, function, ...) \
-    (a_cast(rettype)(shst::invoke_impl(a_cast(void*)(function), __VA_ARGS__)))
-
-#define WRAPPER_EMPTY(rettype, function) (a_cast(rettype)(shst::invoke_impl(a_cast(void*)(function))))
-
-#define WRAPPER_VOID(function, ...) (shst::invoke_impl(a_cast(void*)(function), __VA_ARGS__))
-
-#define WRAPPER_VOID_EMPTY(function) (shst::invoke_impl(a_cast(void*)(function)))
-
-} // namespace shst
+MAYBE_EXTERN_C
+void* shst_invoke_impl(void* callee, ...);

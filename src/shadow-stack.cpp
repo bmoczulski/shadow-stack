@@ -526,14 +526,11 @@ guard::~guard()
     ctx.pop();
 }
 }// namespace detail
+}// namespace shst
 
-extern "C" void* invoke_impl(
-        [[maybe_unused]] void* callee, void* x0, void* x1, void* x2, void* x3, void* x4, void* x5, void* x6, void* x7)
+extern "C" void* shst_invoke_impl(void* callee, void* x0, void* x1, void* x2, void* x3, void* x4, void* x5, void* x6, void* x7)
 {
     long stack_position;
-    detail::guard g{callee, &stack_position};
-    using f_t = void* (*)(void*, void*, void*, void*, void*, void*, void*, void*);
-    return reinterpret_cast<f_t>(callee)(x0, x1, x2, x3, x4, x5, x6, x7);
+    shst::detail::guard g{callee, &stack_position};
+    return reinterpret_cast<shst_f>(callee)(x0, x1, x2, x3, x4, x5, x6, x7);
 }
-
-}// namespace shst
