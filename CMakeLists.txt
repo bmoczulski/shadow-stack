@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(ShadowStack CXX)
+project(ShadowStack CXX C)
 set(CMAKE_CXX_FLAGS "-Wall -Wextra -Og -ggdb3 -rdynamic -fno-omit-frame-pointer")
 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
