@@ -39,6 +39,16 @@ namespace callee_traits
 
     // Instance.*(&Klass::Method) - useful for virtual functions
     template<typename R, typename O, typename C, typename... Args>
+    void* address(O&& o, R (C::*f)(Args...) const)
+    {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpmf-conversions"
+        return reinterpret_cast<void*>(static_cast<const C&>(o).*f);
+#pragma GCC diagnostic pop
+    }
+
+    // Instance.*(&Klass::Method) - useful for virtual functions
+    template<typename R, typename O, typename C, typename... Args>
     void* address(O&& o, R (C::*f)(Args...))
     {
 #pragma GCC diagnostic push
