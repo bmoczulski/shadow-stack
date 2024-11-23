@@ -1,5 +1,9 @@
 #pragma once
 
+typedef void* (*shst_f)(void* x0, void* x1, void* x2, void* x3, void* x4, void* x5, void* x6, void* x7);
+
+#ifdef __cplusplus
+
 #include <type_traits>
 #include <functional>
 
@@ -36,3 +40,5 @@ constexpr auto invoke(F&& f, Args&&... args) noexcept(std::is_nothrow_invocable_
 }
 
 }// namespace shst
+
+#endif // __cplusplus
