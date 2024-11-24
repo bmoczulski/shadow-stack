@@ -35,7 +35,24 @@ template <typename From, typename To>
 using copy_cv_t = typename copy_cv<From, To>::type;
 
 template <typename T>
-using remove_reference_and_pointer_t = std::remove_pointer_t<std::remove_reference_t<T>>;
+struct remove_pr
+{
+	using type = T;
+};
+template <typename T>
+struct remove_pr<T*>
+{
+    using type = std::remove_pointer_t<T>;
+};
+
+template <typename T>
+struct remove_pr<T&>
+{
+    using type = std::remove_reference_t<T>;
+};
+
+template <typename T>
+using remove_reference_and_pointer_t = typename remove_pr<T>::type;
 
 template <typename O>
 O* object_pointer(O& oref)
@@ -113,13 +130,18 @@ void* address(void* p);
 
 } // namespace detail
 
+
+
 template <typename F, typename... Args>
 void* address(F&& f, Args&&... args)
 {
-    if constexpr (std::is_member_function_pointer_v<F>) {
+    if constexpr (std::is_member_function_pointer_v<detail::remove_reference_and_pointer_t<F>>) {
         return detail::member_function_address(std::forward<F>(f), std::forward<Args>(args)...);
     } else {
-        if constexpr (std::is_reference_v<F>) {
+        if constexpr (std::is_function_v<detail::remove_reference_and_pointer_t<F>>) {
+            return reinterpret_cast<void*>(f);
+        }
+        if constexpr (std::is_object_v<detail::remove_reference_and_pointer_t<F>>) {
             return detail::address(std::forward<F>(f));
         }
     }
