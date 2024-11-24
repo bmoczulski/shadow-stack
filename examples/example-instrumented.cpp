@@ -4,10 +4,9 @@
 
 S s;
 
-int main(int argc, char **argv)
+int main(int argc, char** argv)
 {
-    if (argc > 1)
-    {
+    if (argc > 1) {
         set_boom_offset(atoi(argv[1]));
     }
     pthread_mutex_init(&s.m, NULL);
