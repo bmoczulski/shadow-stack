@@ -31,3 +31,7 @@ target_link_libraries(example-c++-instrumented PRIVATE buggy-lib++-instrumented 
 
 add_executable(example-c++-dynamic example.cpp)
 target_link_libraries(example-c++-dynamic buggy-lib++-shared)
+
+
+add_executable(example-c++-object do-stuff.cpp)
+target_link_libraries(example-c++-object shst-static)
