@@ -5,7 +5,7 @@
 
 struct RealCallLogger
 {
-    RealCallLogger(const char *name, shst_f address)
+    RealCallLogger(const char* name, shst_f address)
         : name(name)
         , address(address)
     {
@@ -25,16 +25,15 @@ struct RealCallLogger
         fprintf(stderr, "[shst] %*s<-- returned from: %s() = %p\n", depth(), "", name, address);
     }
 
-    const char *name;
+    const char* name;
     shst_f address;
 };
 
-shst_f load_next(const char * name)
+shst_f load_next(const char* name)
 {
-    static std::map<const char *, shst_f> symbols;
+    static std::map<const char*, shst_f> symbols;
     auto symbol = symbols.find(name);
-    if (symbol == symbols.end())
-    {
+    if (symbol == symbols.end()) {
         auto real = reinterpret_cast<shst_f>(dlsym(RTLD_NEXT, name));
         symbols.emplace(name, real);
         return real;
@@ -42,13 +41,14 @@ shst_f load_next(const char * name)
     return symbol->second;
 }
 
-#define WRAP(real_function_name) \
-extern "C" void* real_function_name(void* x0, void* x1, void* x2, void* x3, void* x4, void* x5, void* x6, void* x7) \
-{                                                                                                                   \
-    auto real = load_next(#real_function_name);                                                                     \
-    RealCallLogger logger(#real_function_name, real);                                                               \
-    return shst::invoke(real, x0, x1, x2, x3, x4, x5, x6, x7);                                                      \
-}
+#define WRAP(real_function_name)                                                            \
+    extern "C" void* real_function_name(                                                    \
+            void* x0, void* x1, void* x2, void* x3, void* x4, void* x5, void* x6, void* x7) \
+    {                                                                                       \
+        auto real = load_next(#real_function_name);                                         \
+        RealCallLogger logger(#real_function_name, real);                                   \
+        return shst::invoke(real, x0, x1, x2, x3, x4, x5, x6, x7);                          \
+    }
 
 WRAP(do_stuff)
 WRAP(do_stuff_locked)
