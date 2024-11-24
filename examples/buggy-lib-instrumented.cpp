@@ -3,12 +3,12 @@
 
 int BOOM_OFFSET = 0;
 
-void innocent_function(S* s)
+extern "C" void innocent_function(S* s)
 {
     s->p += 1;
 }
 
-void buggy_function(S* s)
+extern "C" void buggy_function(S* s)
 {
     s->p += 1;
     shst::invoke(innocent_function, s);
@@ -19,21 +19,21 @@ void buggy_function(S* s)
     s->p = a;
 }
 
-void other(S* s)
+extern "C" void other(S* s)
 {
     s->p += 1;
     shst::invoke(buggy_function, s);
     s->p += 1;
 }
 
-void some(S* s)
+extern "C" void some(S* s)
 {
     s->p += 1;
     other(s);
     s->p += 1;
 }
 
-void do_stuff_locked(S* s)
+extern "C" void do_stuff_locked(S* s)
 {
     s->p += 1;
     shst::invoke(some, s);
@@ -43,14 +43,14 @@ void do_stuff_locked(S* s)
     s->p += 1;
 }
 
-void do_stuff(S* s)
+extern "C" void do_stuff(S* s)
 {
     pthread_mutex_lock(&s->m);
     shst::invoke(do_stuff_locked, s);
     pthread_mutex_unlock(&s->m);
 }
 
-void set_boom_offset(int offset)
+extern "C" void set_boom_offset(int offset)
 {
     BOOM_OFFSET = offset;
 }
