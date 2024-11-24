@@ -10,7 +10,7 @@
 #include <utility>
 
 namespace callee_traits {
-
+namespace detail {
 template <typename From, typename To>
 struct copy_const
 {
@@ -52,23 +52,12 @@ O* object_pointer(O* optr)
 {
     return optr;
 }
-
-template <typename T>
-void* to_void_pointer(T&& o)
-{
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wpmf-conversions"
-    return reinterpret_cast<void*>(o);
-#pragma GCC diagnostic pop
-}
-
 // lambda, std::function, function objects
 template <typename T>
 void* address(T&&)
 {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wpmf-conversions"
-    static_assert(std::is_object_v<T>);
     return reinterpret_cast<void*>(&remove_reference_and_pointer_t<T>::operator());
 #pragma GCC diagnostic pop
 }
@@ -84,8 +73,8 @@ void* address(R (*f)(Args...))
 }
 
 // &Klass::Method
-template <typename R, typename C, typename... Args>
-void* address(R (C::*f)(Args...))
+template <typename R, typename C, typename... Args, typename... Tail>
+void* member_function_address(R (C::*f)(Args...), Tail&&...)
 {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wpmf-conversions"
@@ -93,8 +82,8 @@ void* address(R (C::*f)(Args...))
 #pragma GCC diagnostic pop
 }
 
-template <typename R, typename C, typename... Args>
-void* address(R (C::*f)(Args...) const)
+template <typename R, typename C, typename... Args, typename... Tail>
+void* member_function_address(R (C::*f)(Args...) const, Tail&&...)
 {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wpmf-conversions"
@@ -103,8 +92,8 @@ void* address(R (C::*f)(Args...) const)
 }
 
 // Instance.*(&Klass::Method) - useful for virtual functions
-template <typename R, typename O, typename C, typename... Args>
-void* address(O&& o, R (C::*f)(Args...) const)
+template <typename R, typename O, typename C, typename... Args, typename... Tail>
+void* member_function_address(R (C::*f)(Args...) const, O&& o, Tail&&...)
 {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wpmf-conversions"
@@ -113,8 +102,8 @@ void* address(O&& o, R (C::*f)(Args...) const)
 #pragma GCC diagnostic pop
 }
 
-template <typename R, typename O, typename C, typename... Args>
-void* address(O&& o, R (C::*f)(Args...))
+template <typename R, typename O, typename C, typename... Args, typename... Tail>
+void* member_function_address(R (C::*f)(Args...), O&& o, Tail&&...)
 {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wpmf-conversions"
@@ -127,6 +116,21 @@ void* address(O&& o, R (C::*f)(Args...))
 void* address(void* p)
 {
     return p;
+}
+
+} // namespace detail
+
+template <typename F, typename... Args>
+void* address(F&& f, Args&&... args)
+{
+    if constexpr (std::is_member_function_pointer_v<F>) {
+        return detail::member_function_address(std::forward<F>(f), std::forward<Args>(args)...);
+    } else {
+        if constexpr (std::is_reference_v<F>) {
+            return detail::address(std::forward<F>(f));
+        }
+    }
+    return nullptr;
 }
 
 std::string name(void* callee)
@@ -152,4 +156,4 @@ static std::string name(Args&&... args)
     return name(address(std::forward<Args>(args)...));
 }
 
-};// namespace callee_traits
+}; // namespace callee_traits
