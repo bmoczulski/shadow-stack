@@ -1,4 +1,5 @@
-#include "../src/shadow-stack.h"
+#include "../src/shadow-stack.hpp"
+#include "../src/shadow-stack-common.h"
 #include <map>
 #include <dlfcn.h>
 #include <stdio.h>

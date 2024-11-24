@@ -1,9 +1,7 @@
-#include "shadow-stack.h"
+#include "callee_traits.hpp"
+#include "shadow-stack.hpp"
 #include <cstdio>
 #include <functional>
-/*#include <algorithm>*/
-/*#include <iterator>*/
-/*#include <utility>*/
 
 #include <array>
 
@@ -141,7 +139,7 @@ bool foo(int a, double b)
 void test()
 {
     long stack_position;
-    detail::guard c(detail::function_address(test), &stack_position);
+    detail::guard c(callee_traits::address(&test), &stack_position);
     Foo f;
     std::function<bool(int, double)> ff{foo};
     ::shst::invoke(foo, 3, 3.14);

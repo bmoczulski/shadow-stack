@@ -7,14 +7,12 @@
 #include <cstring>
 #include <ctime>
 #include <execinfo.h>
-#include <iomanip>
-#include <iostream>
 #include <iterator>
 #include <pthread.h>
 #include <sys/types.h>
 #include <vector>
-#include <ranges>
-#include "shadow-stack-detail.h"
+#include "shadow-stack.hpp"
+#include "shadow-stack-common.h"
 #include "callee_traits.hpp"
 
 namespace shst {
@@ -119,7 +117,6 @@ class StackShadow final : public Stack
     StackShadow()
         : orig{makeStackBase()}
         , shadow(orig.size())
-        , ignore_threshold{orig.size()}
     {
     }
 
@@ -158,7 +155,6 @@ class StackShadow final : public Stack
     void push(void* callee, void* stack_pointer);
     void check(Direction);
     void pop();
-    void ignore_above(void* stack_pointer);
 
   protected:
     [[nodiscard]] void const* cstack() const noexcept override
@@ -188,7 +184,6 @@ class StackShadow final : public Stack
     StackBase const orig;
     std::vector<uint8_t> shadow;
     std::vector<StackFrame> stack_frames;
-    size_t ignore_threshold;
 };
 
 StackShadow::Reaction StackShadow::desired_reaction()
@@ -245,14 +240,6 @@ bool StackShadow::dump_hide_equal_lines()
         }
     }
     return false;
-}
-
-void StackShadow::ignore_above(void* stack_pointer)
-{
-    auto const pos = orig.position(stack_pointer);
-    if (pos < orig.size()) {
-        ignore_threshold = pos;
-    }
 }
 
 void StackShadow::push(void* callee, void* sp)
@@ -405,14 +392,10 @@ void StackShadow::check(Direction direction)
     if (!stack_frames.empty()) {
         last_position = stack_frames.back().position;
     }
-    if (last_position >= ignore_threshold) {
-        return;
-    }
 
     auto ot = orig.caddress(last_position);
-    auto ob = orig.cbegin() + ignore_threshold;
+    auto ob = orig.cend();
     auto st = caddress(last_position);
-    // auto sb = cbegin() + ignore_threshold;
     auto depth = ob - ot;
 
     if (memcmp(ot, st, depth) == 0) {
@@ -500,7 +483,6 @@ class StackThreadContext
     void push(void* callee, void* stack_pointer);
     void check(StackShadow::Direction direction);
     void pop();
-    void ignore_above(void* stack_pointer);
 
   private:
     StackShadow shadow;
@@ -521,20 +503,10 @@ void StackThreadContext::pop()
     shadow.pop();
 }
 
-void StackThreadContext::ignore_above(void* stack_pointer)
-{
-    shadow.ignore_above(stack_pointer);
-}
-
 StackThreadContext& getStackThreadContext()
 {
     thread_local StackThreadContext ctx;
     return ctx;
-}
-
-void ignore_above(void* stack_pointer)
-{
-    getStackThreadContext().ignore_above(stack_pointer);
 }
 
 namespace detail {

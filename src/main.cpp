@@ -1,13 +1,7 @@
 #include "shadow-stack.h"
-#include <algorithm>
 #include <cstdint>
 #include <cstring>
-#include <iomanip>
-#include <ios>
-#include <ranges>
 #include <iostream>
-#include <string>
-#include <string_view>
 #include <vector>
 
 using namespace std;
@@ -29,24 +23,6 @@ void test_stack_range()
     cout << "Stack: " << stackaddr << ": " << stacksize << ": local var: " << &dummy
          << " in range: " << is_addr_in_range(&dummy, stackaddr, stacksize) << '\n';
 }
-
-//////////////////////////////////////////////////////////////////////////
-/// experiment
-//////////////////////////////////////////////////////////////////////////
-
-long foo(...)
-{
-    return 0;
-}
-
-void* foo_wrapper(void* x0, void* x1, void* x2, void* x3, void* x4, void* x5, void* x6)
-{
-    return shst_invoke_impl(reinterpret_cast<void*>(foo), x0, x1, x2, x3, x4, x5, x6);
-}
-
-//////////////////////////////////////////////////////////////////////////
-/// end of experiment
-//////////////////////////////////////////////////////////////////////////
 
 void test_check()
 {

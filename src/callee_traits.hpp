@@ -1,10 +1,6 @@
 #pragma once
 
 #include <execinfo.h>
-#include <ios>
-#include <iostream>
-#include <memory>
-#include <sstream>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -113,10 +109,7 @@ void* member_function_address(R (C::*f)(Args...), O&& o, Tail&&...)
 }
 
 // last resort, whatever pointer, perhaps reinterpred-cased pointer to function
-void* address(void* p)
-{
-    return p;
-}
+void* address(void* p);
 
 } // namespace detail
 
@@ -133,25 +126,10 @@ void* address(F&& f, Args&&... args)
     return nullptr;
 }
 
-std::string name(void* callee)
-{
-    void* buffer[]{const_cast<void*>(callee)};
-    auto symbols = std::unique_ptr<char*, decltype(free)*>(backtrace_symbols(buffer, 1), free);
-    if (symbols) {
-        if (symbols.get()[0]) {
-            return symbols.get()[0];
-        } else {
-            std::ostringstream os;
-            os << std::hex << std::showbase << callee;
-            return os.str();
-        }
-    } else {
-        return "<unknown_callee>";
-    }
-}
+std::string name(void* callee);
 
 template <typename... Args>
-static std::string name(Args&&... args)
+std::string name(Args&&... args)
 {
     return name(address(std::forward<Args>(args)...));
 }

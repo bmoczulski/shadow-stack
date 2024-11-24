@@ -1,4 +1,4 @@
-#include "../src/shadow-stack.h"
+#include "../src/shadow-stack.hpp"
 #include "do-stuff.h"
 
 int BOOM_OFFSET = 0;
