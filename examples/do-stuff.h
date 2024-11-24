@@ -3,7 +3,7 @@
 
 struct S
 {
-    char *p;
+    char* p;
     pthread_mutex_t m;
 };
 
@@ -15,7 +15,7 @@ typedef struct S S;
 extern "C" {
 #endif
 
-void do_stuff(S *s);
+void do_stuff(S* s);
 void set_boom_offset(int offset);
 
 #ifdef __cplusplus
