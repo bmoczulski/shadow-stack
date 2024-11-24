@@ -1,9 +1,7 @@
 #pragma once
 #include "shadow-stack-detail.h"
 
-#define shst_invoke(f, ...) \
-   (typeof( f(__VA_ARGS__) )) \
-   shst_invoke_impl((shst_f)f, ##__VA_ARGS__)
+#define shst_invoke(f, ...) (typeof(f(__VA_ARGS__)))shst_invoke_impl((shst_f)f, ##__VA_ARGS__)
 
 #ifdef __cplusplus
 #define MAYBE_EXTERN_C extern "C"
