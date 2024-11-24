@@ -10,7 +10,7 @@
 #if 1
 int f0([[maybe_unused]] unsigned* arg_a, [[maybe_unused]] unsigned* aa = nullptr)
 {
-    arg_a[12]  =32;
+    arg_a[12] = 32;
     return 3;
 }
 
@@ -149,7 +149,7 @@ void test()
     ::shst::invoke(&Foo::foo, f, 3, 3.14);
 }
 
-}// namespace shst
+} // namespace shst
 
 int foo_wrapper(void* a, void* b, void* c, void* d)
 {
