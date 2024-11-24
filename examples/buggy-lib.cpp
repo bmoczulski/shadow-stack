@@ -2,14 +2,14 @@
 
 int BOOM_OFFSET = 0;
 
-extern "C" void innocent_function(S *s)
+extern "C" void innocent_function(S* s)
 {
-    s->p+= 1;
+    s->p += 1;
 }
 
-extern "C" void buggy_function(S *s)
+extern "C" void buggy_function(S* s)
 {
-    s->p+= 1;
+    s->p += 1;
     innocent_function(s);
 
     char a[1];
@@ -18,31 +18,31 @@ extern "C" void buggy_function(S *s)
     s->p = a;
 }
 
-extern "C" void other(S *s)
+extern "C" void other(S* s)
 {
-    s->p+= 1;
+    s->p += 1;
     buggy_function(s);
-    s->p+= 1;
+    s->p += 1;
 }
 
-extern "C" void some(S *s)
+extern "C" void some(S* s)
 {
-    s->p+= 1;
+    s->p += 1;
     other(s);
-    s->p+= 1;
+    s->p += 1;
 }
 
-extern "C" void do_stuff_locked(S *s)
+extern "C" void do_stuff_locked(S* s)
 {
-    s->p+= 1;
+    s->p += 1;
     some(s);
     // free and re-aquire mutex to prevent some compiler optimizations (don't do it at home!)
     pthread_mutex_unlock(&s->m);
     pthread_mutex_lock(&s->m);
-    s->p+= 1;
+    s->p += 1;
 }
 
-extern "C" void do_stuff(S *s)
+extern "C" void do_stuff(S* s)
 {
     pthread_mutex_lock(&s->m);
     do_stuff_locked(s);
