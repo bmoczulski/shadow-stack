@@ -3,17 +3,18 @@
 
 namespace shst {
 
-template<typename R, typename... Args>
+template <typename R, typename... Args>
 struct Wrapper
 {
     using callee_t = R (*)(Args...);
     callee_t callee;
 
-    Wrapper(callee_t callee) : callee{callee}
+    Wrapper(callee_t callee)
+        : callee{callee}
     {
     }
 
-    template<typename... ConvertibleArgs>
+    template <typename... ConvertibleArgs>
     auto operator()(ConvertibleArgs&&... args)
     {
         // std::cout << "calling " << reinterpret_cast<void*>(callee) << std::endl;
@@ -33,13 +34,13 @@ struct Wrapper
     }
 };
 
-template<typename R, typename... Args>
+template <typename R, typename... Args>
 Wrapper<R, Args...> protect(R (*callable)(Args...))
 {
     return Wrapper<R, Args...>(callable);
 }
 
-} // shst
+} // namespace shst
 
 int square(int a)
 {
@@ -51,15 +52,11 @@ int add(int a, int b)
     return a + b;
 }
 
-
 int square_plus_one(int a)
 {
     return add(square(a), 1);
-    return shst::protect(add)(
-        shst::protect(square)(a),
-        1);
+    return shst::protect(add)(shst::protect(square)(a), 1);
 }
-
 
 int main()
 {
