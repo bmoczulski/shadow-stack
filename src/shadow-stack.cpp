@@ -430,9 +430,7 @@ void StackShadow::check(Direction direction)
     }
 
     fprintf(stderr, "\n");
-    int const max_line = dump_width();
-    const bool hide_equal_lines = false;
-    MemoryPrinter orig_dump(max_line, dump_hide_equal_lines(), dump_area());
+    MemoryPrinter orig_dump(dump_width(), dump_hide_equal_lines(), dump_area());
     orig_dump.print_header();
 
     for (auto frame = stack_frames.rbegin(); frame != stack_frames.rend(); ++frame) {
