@@ -39,16 +39,17 @@ struct remove_pr
 {
 	using type = T;
 };
+
 template <typename T>
 struct remove_pr<T*>
 {
-    using type = std::remove_pointer_t<T>;
+    using type = typename remove_pr<std::remove_pointer_t<T>>::type;
 };
 
 template <typename T>
 struct remove_pr<T&>
 {
-    using type = std::remove_reference_t<T>;
+    using type = typename remove_pr<std::remove_reference_t<T>>::type;
 };
 
 template <typename T>
@@ -156,4 +157,4 @@ std::string name(Args&&... args)
     return name(address(std::forward<Args>(args)...));
 }
 
-}; // namespace callee_traits
+} // namespace callee_traits
