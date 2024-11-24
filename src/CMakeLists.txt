@@ -6,6 +6,7 @@ if(LIBEXECINFO_INCLUDE_DIR AND LIBEXECINFO_LIBRARY)
 endif()
 
 set(SHST_LIBRARY_SOURCES shadow-stack.h shadow-stack.cpp)
+add_compile_options(-Wno-pmf-conversions -Wno-unused-variable)
 
 add_library(shst SHARED ${SHST_LIBRARY_SOURCES})
 add_library(shst-static ${SHST_LIBRARY_SOURCES})
