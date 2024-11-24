@@ -2,6 +2,12 @@
 
 A library for finding stack corruptions.
 
+## Slides
+
+Slides from code::dive 2024 presentation are available here:
+
+[![Shadow Stakc - slides (PDF)](https://bartosz.codes/assets/Shadow%20Stack,%20code__dive%202024%20-%20title%20slide.png)](https://bartosz.codes/assets/Shadow%20Stack,%20code__dive%202024.pdf)
+
 # Why?
 
 Because deep sub-sub-callee can corrupt (grand-)parent stack frame in a manner diffucult to debug and only manifesting itself way later!
