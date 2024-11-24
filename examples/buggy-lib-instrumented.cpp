@@ -3,14 +3,14 @@
 
 int BOOM_OFFSET = 0;
 
-void innocent_function(S *s)
+void innocent_function(S* s)
 {
-    s->p+= 1;
+    s->p += 1;
 }
 
-void buggy_function(S *s)
+void buggy_function(S* s)
 {
-    s->p+= 1;
+    s->p += 1;
     shst::invoke(innocent_function, s);
 
     char a[1];
@@ -19,31 +19,31 @@ void buggy_function(S *s)
     s->p = a;
 }
 
-void other(S *s)
+void other(S* s)
 {
-    s->p+= 1;
+    s->p += 1;
     shst::invoke(buggy_function, s);
-    s->p+= 1;
+    s->p += 1;
 }
 
-void some(S *s)
+void some(S* s)
 {
-    s->p+= 1;
+    s->p += 1;
     other(s);
-    s->p+= 1;
+    s->p += 1;
 }
 
-void do_stuff_locked(S *s)
+void do_stuff_locked(S* s)
 {
-    s->p+= 1;
+    s->p += 1;
     shst::invoke(some, s);
     // free and re-aquire mutex to prevent some compiler optimizations (don't do it at home!)
     pthread_mutex_unlock(&s->m);
     pthread_mutex_lock(&s->m);
-    s->p+= 1;
+    s->p += 1;
 }
 
-void do_stuff(S *s)
+void do_stuff(S* s)
 {
     pthread_mutex_lock(&s->m);
     shst::invoke(do_stuff_locked, s);
