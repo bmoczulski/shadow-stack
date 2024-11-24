@@ -47,19 +47,6 @@ void* foo_wrapper(void* x0, void* x1, void* x2, void* x3, void* x4, void* x5, vo
 //////////////////////////////////////////////////////////////////////////
 /// end of experiment
 //////////////////////////////////////////////////////////////////////////
-void ranges_test()
-{
-    std::string s1{"ala ma kota"};
-    std::string s2{"ala ma też psa"};
-    auto res = std::ranges::mismatch(s1, s2);
-    std::cout << std::string_view(res.in1, s1.end()) << '\n';
-    std::cout << std::string_view(res.in2, s2.end()) << '\n';
-}
-
-void print_range(std::string_view msg, auto const& range)
-{
-    std::cout << msg << ": " << std::string_view(range.cbegin(), range.cend()) << '\n';
-}
 
 void test_check()
 {
@@ -76,72 +63,22 @@ void test_check()
 
     size_t const max_line = 16;
 
-        fprintf(stderr, "ORIG (CORRUPTED):\n");
-        for (int i = 0; i < depth; ++i)
-        {
-            if (i % max_line == 0) {
-                fprintf(stderr, "\n%16p: ", ot + i);
-            }
-            fprintf(stderr, "%c%02x%c", ot[i] != st[i] ? '[' : ' ', ot[i], ot[i] != st[i] ? ']' : ' ');
+    fprintf(stderr, "ORIG (CORRUPTED):\n");
+    for (int i = 0; i < depth; ++i) {
+        if (i % max_line == 0) {
+            fprintf(stderr, "\n%16p: ", ot + i);
         }
-        fprintf(stderr, "\n");
-        fprintf(stderr, "SHADOW (CORRECT):\n");
-        for (int i = 0; i < depth; ++i)
-        {
-            if (i % max_line == 0) {
-                fprintf(stderr, "\n%16p: ", st + i);
-            }
-            fprintf(stderr, "%c%02x%c", ot[i] != st[i] ? '[' : ' ', st[i], ot[i] != st[i] ? ']' : ' ');
+        fprintf(stderr, "%c%02x%c", ot[i] != st[i] ? '[' : ' ', ot[i], ot[i] != st[i] ? ']' : ' ');
+    }
+    fprintf(stderr, "\n");
+    fprintf(stderr, "SHADOW (CORRECT):\n");
+    for (int i = 0; i < depth; ++i) {
+        if (i % max_line == 0) {
+            fprintf(stderr, "\n%16p: ", st + i);
         }
-        fprintf(stderr, "\n");
-#if 0
-    using std::ranges::for_each;
-    using std::ranges::subrange;
-    using std::views::chunk;
-    using std::views::counted;
-    using std::views::filter;
-    using std::views::zip;
-
-    std::vector<char> orig(128, '+');
-    std::vector<char> shadow(128, '+');
-    shadow[54] = '?';
-    auto orig_range = subrange(orig);
-    auto shadow_range = subrange(shadow);
-
-    size_t const max_line = 16;
-
-    for_each(std::views::zip(orig_range | chunk(max_line), shadow_range | chunk(max_line)) |
-                     filter([](auto const& pair) {
-                         /*print_range("check orig", get<0>(pair));*/
-                         /*print_range("check shad", get<1>(pair));*/
-                         auto res = std::ranges::mismatch(get<0>(pair), get<1>(pair));
-                         return res.in1 != get<0>(pair).end();
-                     }),
-             []([[maybe_unused]] auto const& pair) {
-                 /*print_range(" diff orig", get<0>(pair));*/
-                 /*print_range(" diff shad", get<1>(pair));*/
-
-                 cout << std::hex;
-                 cout << std::setw(16) << static_cast<void*>(&(*get<0>(pair).begin())) << ": ";
-
-                 auto old_flags = cout.setf(std::ios::hex);
-                 auto old_fill = cout.fill('0');
-
-                 for_each(get<0>(pair) | chunk(4), [first = bool{true}](auto const& ch8) mutable {
-                     std::cout << ((first) ? (first = false, "") : " ");
-                     for_each(ch8, [](auto b) { cout << std::setw(2) << static_cast<unsigned>(b & 0xFF); });
-                 });
-                 cout << "    ";
-                 for_each(get<1>(pair) | chunk(4), [first = bool{true}](auto const& ch8) mutable {
-                     std::cout << ((first) ? (first = false, "") : " ");
-                     for_each(ch8, [](auto b) { cout << std::setw(2) << static_cast<unsigned>(b & 0xFF); });
-                 });
-                 cout << '\n';
-
-                 cout.setf(old_flags);
-                 cout.fill(old_fill);
-             });
-#endif
+        fprintf(stderr, "%c%02x%c", ot[i] != st[i] ? '[' : ' ', st[i], ot[i] != st[i] ? ']' : ' ');
+    }
+    fprintf(stderr, "\n");
 }
 
 int main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[])
