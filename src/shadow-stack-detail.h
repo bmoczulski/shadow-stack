@@ -19,15 +19,15 @@ struct guard
 template <typename F>
 void* function_address(F&& f)
 {
-    /// TODO: get function address (if possible) from 
-    /// standalone function, 
+    /// TODO: get function address (if possible) from
+    /// standalone function,
     /// member function
     /// from lambda
     /// std::function
     return reinterpret_cast<void*>(&f);
 }
 
-}// namespace detail
+} // namespace detail
 
 void ignore_above(void* stack_pointer);
 
@@ -39,6 +39,6 @@ constexpr auto invoke(F&& f, Args&&... args) noexcept(std::is_nothrow_invocable_
     return std::invoke(std::forward<F>(f), std::forward<Args>(args)...);
 }
 
-}// namespace shst
+} // namespace shst
 
 #endif // __cplusplus
