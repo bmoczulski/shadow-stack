@@ -165,3 +165,10 @@ ninja -C build
 
 - `"yes|true|1"` - hide equal lines (show only differing lines)
 - anything else (default) - show everything
+
+`SHST_DUMP_COLOR` - should hex differences be colorized and blinking
+
+- `"always"` - always use colors
+- `"auto"` (default) - use colors only if stderr is a terminal
+- `"never"` - never use colors
+- when enabled, differences blink with red background for actual stack, green background for shadow stack

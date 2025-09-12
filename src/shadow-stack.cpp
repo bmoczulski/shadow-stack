@@ -10,6 +10,7 @@
 #include <iterator>
 #include <pthread.h>
 #include <sys/types.h>
+#include <unistd.h>
 #include <vector>
 #include "shadow-stack.hpp"
 #include "shadow-stack-common.h"
@@ -21,6 +22,11 @@
 #endif
 
 namespace shst {
+
+// ANSI color codes for hex dump differences
+static constexpr const char* ANSI_RED_BLINK = "\033[5;41m";
+static constexpr const char* ANSI_GREEN_BLINK = "\033[5;42m";
+static constexpr const char* ANSI_RESET = "\033[0m";
 
 class Stack
 {
@@ -156,6 +162,7 @@ class StackShadow final : public Stack
     int dump_width();
     DumpArea dump_area();
     bool dump_hide_equal_lines();
+    bool should_use_color();
 
     void push(void* callee, void* stack_pointer);
     void check(Direction);
@@ -247,6 +254,20 @@ bool StackShadow::dump_hide_equal_lines()
     return false;
 }
 
+bool StackShadow::should_use_color()
+{
+    auto color = getenv("SHST_DUMP_COLOR");
+    if (color == nullptr || strcmp(color, "auto") == 0) {
+        return isatty(STDERR_FILENO);
+    } else if (strcmp(color, "always") == 0) {
+        return true;
+    } else if (strcmp(color, "never") == 0) {
+        return false;
+    } else {
+        return isatty(STDERR_FILENO);
+    }
+}
+
 void StackShadow::push(void* callee, void* sp)
 {
     auto const last_stack_position = stack_frames.empty() ? orig.size() : stack_frames.back().position;
@@ -266,16 +287,19 @@ struct MemoryPrinter
 {
     MemoryPrinter(size_t line_lenght = 0,
                   bool hide_equal_lines = false,
-                  StackShadow::DumpArea area = StackShadow::DumpArea::both)
+                  StackShadow::DumpArea area = StackShadow::DumpArea::both,
+                  bool use_color = false)
         : line_lenght(line_lenght)
         , hide_equal_lines(hide_equal_lines)
         , area(area)
+        , use_color(use_color)
     {
     }
 
     size_t line_lenght = 0;
     bool hide_equal_lines = false;
     StackShadow::DumpArea area = StackShadow::DumpArea::both;
+    bool use_color = false;
 
     void print_header()
     {
@@ -344,7 +368,12 @@ struct MemoryPrinter
                     auto in_area = this_byte >= address && this_byte < address + length;
                     if (in_area) {
                         bool differs = shadow ? *this_byte != shadow[this_byte - address] : false;
-                        fprintf(out, "%c%02x%c", differs ? '[' : ' ', *this_byte, differs ? ']' : ' ');
+                        fprintf(out, "%s%c%02x%c%s",
+                                (differs && use_color) ? ANSI_RED_BLINK : "",
+                                differs ? '[' : ' ',
+                                *this_byte,
+                                differs ? ']' : ' ',
+                                (differs && use_color) ? ANSI_RESET : "");
                     } else {
                         fprintf(out, "    ");
                     }
@@ -366,7 +395,12 @@ struct MemoryPrinter
                     auto in_area = this_byte >= address && this_byte < address + length;
                     if (in_area) {
                         bool differs = shadow ? *this_byte != shadow[this_byte - address] : false;
-                        fprintf(out, "%c%02x%c", differs ? '[' : ' ', shadow[this_byte - address], differs ? ']' : ' ');
+                        fprintf(out, "%s%c%02x%c%s",
+                                (differs && use_color) ? ANSI_GREEN_BLINK : "",
+                                differs ? '[' : ' ',
+                                shadow[this_byte - address],
+                                differs ? ']' : ' ',
+                                (differs && use_color) ? ANSI_RESET : "");
                     } else {
                         fprintf(out, "    ");
                     }
@@ -435,7 +469,7 @@ void StackShadow::check(Direction direction)
     }
 
     fprintf(stderr, "\n");
-    MemoryPrinter orig_dump(dump_width(), dump_hide_equal_lines(), dump_area());
+    MemoryPrinter orig_dump(dump_width(), dump_hide_equal_lines(), dump_area(), should_use_color());
     orig_dump.print_header();
 
     for (auto frame = stack_frames.rbegin(); frame != stack_frames.rend(); ++frame) {
