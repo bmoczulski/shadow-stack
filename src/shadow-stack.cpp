@@ -15,6 +15,11 @@
 #include "shadow-stack-common.h"
 #include "callee_traits.hpp"
 
+#ifdef HAVE_LIBUNWIND
+#define UNW_LOCAL_ONLY
+#include <libunwind.h>
+#endif
+
 namespace shst {
 
 class Stack
@@ -444,10 +449,76 @@ void StackShadow::check(Direction direction)
     // fprintf(stderr, "ALL OF IT\n");
     // orig_dump.dump(stderr, ot, st, depth);
 
-    fprintf(stderr, "\nbacktrace:\n");
-    std::array<void*, 1024> buff;
-    auto n = backtrace(buff.data(), buff.size());
-    backtrace_symbols_fd(buff.data(), n, 2);
+    auto print_enhanced_backtrace = []() {
+        fprintf(stderr, "\nbacktrace:\n");
+        std::array<void*, 1024> buff;
+        auto n = backtrace(buff.data(), buff.size());
+
+        // Try libunwind if backtrace() failed (common on musl)
+        if (n == 0) {
+#ifdef HAVE_LIBUNWIND
+            fprintf(stderr, "backtrace() failed, trying libunwind...\n");
+
+            unw_cursor_t cursor;
+            unw_context_t context;
+
+            int ret = unw_getcontext(&context);
+            if (ret < 0) {
+                fprintf(stderr, "ERROR: unw_getcontext() failed: %d\n", ret);
+                return;
+            }
+
+            ret = unw_init_local(&cursor, &context);
+            if (ret < 0) {
+                fprintf(stderr, "ERROR: unw_init_local() failed: %d\n", ret);
+                return;
+            }
+
+            int frame = 0;
+            do {
+                unw_word_t ip;
+                ret = unw_get_reg(&cursor, UNW_REG_IP, &ip);
+                if (ret < 0) {
+                    fprintf(stderr, "ERROR: unw_get_reg() failed: %d\n", ret);
+                    break;
+                }
+
+                // Try to get symbol name
+                char symbol[256];
+                unw_word_t offset;
+                ret = unw_get_proc_name(&cursor, symbol, sizeof(symbol), &offset);
+
+                if (ret == 0) {
+                    fprintf(stderr, "Frame %2d: 0x%016lx in %s+0x%lx\n",
+                           frame, (unsigned long)ip, symbol, (unsigned long)offset);
+                } else {
+                    fprintf(stderr, "Frame %2d: 0x%016lx in <unknown>\n",
+                           frame, (unsigned long)ip);
+                }
+
+                frame++;
+                if (frame > 20) {  // Prevent infinite loops
+                    fprintf(stderr, "... (truncated, too many frames)\n");
+                    break;
+                }
+
+            } while ((ret = unw_step(&cursor)) > 0);
+
+            if (ret < 0) {
+                fprintf(stderr, "ERROR: unw_step() failed: %d\n", ret);
+            }
+
+            fprintf(stderr, "Total frames: %d\n", frame);
+#else
+            fprintf(stderr, "backtrace() failed and libunwind not available\n");
+#endif
+        } else {
+            // backtrace() worked, use it
+            backtrace_symbols_fd(buff.data(), n, 2);
+        }
+    };
+
+    print_enhanced_backtrace();
 
     switch (reaction) {
         case Reaction::report_and_continue:
