@@ -406,7 +406,12 @@ struct MemoryPrinter
                     fprintf(out, "| ");
                     for (auto this_byte = line_start; this_byte < line_start + line_lenght; ++this_byte) {
                         auto in_area = this_byte >= address && this_byte < address + length;
-                        fprintf(out, "%c", in_area ? get_preview_char(this_byte - address) : ' ');
+                        bool color = in_area && use_color && (shadow ? *this_byte != shadow[this_byte - address] : false);
+                        fprintf(out, "%s%c%s",
+                            color ? color_code : "",
+                            in_area ? get_preview_char(this_byte - address) : ' ',
+                            color ? ANSI_RESET : ""
+                        );
                     }
                 }
             };
