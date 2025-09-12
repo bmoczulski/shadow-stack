@@ -60,7 +60,7 @@ void generation2(char* legacy)
 void generation1(char* legacy)
 {
     DescendantMD md;
-    shst::invoke(&Ancestor::care, md, legacy);
+    shst::invoke(&Ancestor::care, md, legacy); // <-- md.care(legacy);
     shst::invoke(generation2, legacy);
 }
 
