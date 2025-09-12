@@ -359,26 +359,51 @@ struct MemoryPrinter
             }
 
             if (with_address) {
-                fprintf(out, "%c %16p | ", line_differs ? '*' : ' ', line_start);
+                fprintf(out, "%c %16p |", line_differs ? '*' : ' ', line_start);
             }
 
             auto print_hex_section = [&](const uint8_t* data_source, const char* color_code, auto get_preview_char) {
+                bool prev_differs = false;
                 for (auto this_byte = line_start; this_byte < line_start + line_lenght; ++this_byte) {
                     auto in_area = this_byte >= address && this_byte < address + length;
                     if (in_area) {
                         bool differs = shadow ? *this_byte != shadow[this_byte - address] : false;
-                        fprintf(out, "%s%c%02x%c%s",
-                                (differs && use_color) ? color_code : "",
-                                differs ? '[' : ' ',
-                                data_source[this_byte - address],
-                                differs ? ']' : ' ',
-                                (differs && use_color) ? ANSI_RESET : "");
+
+                        const char* prefix = " ";
+                        const char* suffix = "";
+                        const char* color_start = "";
+                        const char* color_end = "";
+                        const char* suffix_reset = "";
+
+                        if (differs && !prev_differs) {
+                            prefix = "[";
+                            color_start = use_color ? color_code : "";
+                        } else if (!differs && prev_differs) {
+                            prefix = "]";
+                            color_end = use_color ? ANSI_RESET : "";
+                        }
+
+                        bool is_last_char = (this_byte + 1 >= line_start + line_lenght) ||
+                                            (this_byte + 1 >= address + length);
+                        if (differs && is_last_char) {
+                            suffix = "]";
+                            suffix_reset = use_color ? ANSI_RESET : "";
+                        } else if (is_last_char) {
+                            suffix = " ";
+                        }
+
+                        fprintf(out, "%s%s%s%02x%s%s", color_start, prefix, color_end, data_source[this_byte - address], suffix, suffix_reset);
+                        prev_differs = differs;
                     } else {
-                        fprintf(out, "    ");
+                        if (prev_differs) {
+                            fprintf(out, "]%s", use_color ? ANSI_RESET : "");
+                            prev_differs = false;
+                        }
+                        fprintf(out, "   ");
                     }
                 }
                 if (with_preview) {
-                    fprintf(out, " | ");
+                    fprintf(out, "| ");
                     for (auto this_byte = line_start; this_byte < line_start + line_lenght; ++this_byte) {
                         auto in_area = this_byte >= address && this_byte < address + length;
                         fprintf(out, "%c", in_area ? get_preview_char(this_byte - address) : ' ');
@@ -393,7 +418,7 @@ struct MemoryPrinter
                 });
             }
             if (area == StackShadow::DumpArea::both) {
-                fprintf(out, " | ");
+                fprintf(out, " |");
             }
             // shadow
             if (area == StackShadow::DumpArea::both || area == StackShadow::DumpArea::shadow) {
@@ -401,7 +426,7 @@ struct MemoryPrinter
                     return isprint(shadow[offset]) ? shadow[offset] : '.';
                 });
             }
-            fprintf(out, "\n");
+            fprintf(out, "%s\n", with_preview ? " |" : "");
         }
         if (hidden_bytes || hidden_lines) {
             fprintf(out, "    (%d equal bytes in %d lines hidden)\n", hidden_bytes, hidden_lines);
