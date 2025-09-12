@@ -362,16 +362,15 @@ struct MemoryPrinter
                 fprintf(out, "%c %16p | ", line_differs ? '*' : ' ', line_start);
             }
 
-            // actual
-            if (area == StackShadow::DumpArea::both || area == StackShadow::DumpArea::actual) {
+            auto print_hex_section = [&](const uint8_t* data_source, const char* color_code, auto get_preview_char) {
                 for (auto this_byte = line_start; this_byte < line_start + line_lenght; ++this_byte) {
                     auto in_area = this_byte >= address && this_byte < address + length;
                     if (in_area) {
                         bool differs = shadow ? *this_byte != shadow[this_byte - address] : false;
                         fprintf(out, "%s%c%02x%c%s",
-                                (differs && use_color) ? ANSI_RED_BLINK : "",
+                                (differs && use_color) ? color_code : "",
                                 differs ? '[' : ' ',
-                                *this_byte,
+                                data_source[this_byte - address],
                                 differs ? ']' : ' ',
                                 (differs && use_color) ? ANSI_RESET : "");
                     } else {
@@ -382,39 +381,25 @@ struct MemoryPrinter
                     fprintf(out, " | ");
                     for (auto this_byte = line_start; this_byte < line_start + line_lenght; ++this_byte) {
                         auto in_area = this_byte >= address && this_byte < address + length;
-                        fprintf(out, "%c", in_area ? isprint(*this_byte) ? *this_byte : '.' : ' ');
+                        fprintf(out, "%c", in_area ? get_preview_char(this_byte - address) : ' ');
                     }
                 }
+            };
+
+            // actual
+            if (area == StackShadow::DumpArea::both || area == StackShadow::DumpArea::actual) {
+                print_hex_section(address, ANSI_RED_BLINK, [&](size_t offset) {
+                    return isprint(address[offset]) ? address[offset] : '.';
+                });
             }
             if (area == StackShadow::DumpArea::both) {
                 fprintf(out, " | ");
             }
             // shadow
             if (area == StackShadow::DumpArea::both || area == StackShadow::DumpArea::shadow) {
-                for (auto this_byte = line_start; this_byte < line_start + line_lenght; ++this_byte) {
-                    auto in_area = this_byte >= address && this_byte < address + length;
-                    if (in_area) {
-                        bool differs = shadow ? *this_byte != shadow[this_byte - address] : false;
-                        fprintf(out, "%s%c%02x%c%s",
-                                (differs && use_color) ? ANSI_GREEN_BLINK : "",
-                                differs ? '[' : ' ',
-                                shadow[this_byte - address],
-                                differs ? ']' : ' ',
-                                (differs && use_color) ? ANSI_RESET : "");
-                    } else {
-                        fprintf(out, "    ");
-                    }
-                }
-                if (with_preview) {
-                    fprintf(out, " | ");
-                    for (auto this_byte = line_start; this_byte < line_start + line_lenght; ++this_byte) {
-                        auto in_area = this_byte >= address && this_byte < address + length;
-                        fprintf(out,
-                                "%c",
-                                in_area ? isprint(shadow[this_byte - address]) ? shadow[this_byte - address] : '.'
-                                        : ' ');
-                    }
-                }
+                print_hex_section(shadow, ANSI_GREEN_BLINK, [&](size_t offset) {
+                    return isprint(shadow[offset]) ? shadow[offset] : '.';
+                });
             }
             fprintf(out, "\n");
         }
