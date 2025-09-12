@@ -143,7 +143,7 @@ class StackShadow final : public Stack
     enum class DumpArea
     {
         both,
-        original,
+        actual,
         shadow
     };
 
@@ -222,8 +222,8 @@ StackShadow::DumpArea StackShadow::dump_area()
     auto area = getenv("SHST_DUMP_AREA");
     if (area == nullptr || strcmp(area, "both") == 0) {
         return DumpArea::both;
-    } else if (strcmp(area, "original") == 0) {
-        return DumpArea::original;
+    } else if (strcmp(area, "actual") == 0) {
+        return DumpArea::actual;
     } else if (strcmp(area, "shadow") == 0) {
         return DumpArea::shadow;
     } else {
@@ -278,10 +278,10 @@ struct MemoryPrinter
             fprintf(stderr,
                     "                      %*s      %s\n",
                     -static_cast<int>(line_lenght) * 5,
-                    "ORIGINAL STACK (CORRUPTED):",
+                    "ACTUAL STACK (CORRUPTED):",
                     "SHADOW STACK (CORRECT):");
-        } else if (area == StackShadow::DumpArea::original) {
-            fprintf(stderr, "                      %s\n", "ORIGINAL STACK (CORRUPTED):");
+        } else if (area == StackShadow::DumpArea::actual) {
+            fprintf(stderr, "                      %s\n", "ACTUAL STACK (CORRUPTED):");
         } else {
             fprintf(stderr, "                      %s\n", "SHADOW STACK (CORRECT):");
         }
@@ -334,7 +334,7 @@ struct MemoryPrinter
             }
 
             // actual
-            if (area == StackShadow::DumpArea::both || area == StackShadow::DumpArea::original) {
+            if (area == StackShadow::DumpArea::both || area == StackShadow::DumpArea::actual) {
                 for (auto this_byte = line_start; this_byte < line_start + line_lenght; ++this_byte) {
                     auto in_area = this_byte >= address && this_byte < address + length;
                     if (in_area) {

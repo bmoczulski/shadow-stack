@@ -157,8 +157,8 @@ ninja -C build
 
 `SHST_DUMP_AREA` - which area should be shown in hex-dump
 
-- `"both"` (default) - show both original stack and shadow copy
-- `"original"` - show only original stack (i.e. the corrupted stack)
+- `"both"` (default) - show both actual stack and shadow copy
+- `"actual"` - show only actual stack (i.e. the corrupted stack)
 - `"shadow"` - show only shadow copy (i.e. the correct stack)
 
 `SHST_DUMP_HIDE_EQUAL` - should equal lines in hex-dump be hidden
