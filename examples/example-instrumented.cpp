@@ -1,5 +1,6 @@
 #include "../src/shadow-stack.hpp"
 #include "do-stuff.h"
+#include <stdlib.h>
 
 S s;
 
