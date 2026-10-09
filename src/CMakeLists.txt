@@ -1,3 +1,7 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2024 Bartosz Moczulski
+# Copyright (c) 2024 Adam Szaj
+
 find_path(LIBEXECINFO_INCLUDE_DIR execinfo.h)
 find_library(LIBEXECINFO_LIBRARY NAMES execinfo)
 

@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2024 Bartosz Moczulski
+// Copyright (c) 2024 Adam Szaj
+
 #include <algorithm>
 #include <array>
 #include <cstddef>

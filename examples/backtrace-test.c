@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2024 Bartosz Moczulski
+
 #include <execinfo.h>
 #include <stdio.h>
 #include <stdlib.h>

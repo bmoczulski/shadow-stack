@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2024 Bartosz Moczulski
+
 # C
 add_library(buggy-lib-shared SHARED buggy-lib.c)
 add_library(buggy-lib-static buggy-lib.c)

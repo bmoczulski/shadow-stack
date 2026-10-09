@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2024 Bartosz Moczulski
+
 #include "do-stuff.h"
 
 int BOOM_OFFSET = 0;
